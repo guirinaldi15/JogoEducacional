@@ -917,52 +917,67 @@ function Quiz({
   complete: () => void;
 }) {
   const [i, setI] = useState(0);
-
-  const [msg, setMsg] =
-    useState('');
+  const [msg, setMsg] = useState('');
+  const [selectedLetter, setSelectedLetter] = useState('');
 
   const q = questions[i];
 
+  const displayedPattern = selectedLetter
+    ? q.pattern.replace('_', selectedLetter)
+    : q.pattern;
+
   const choose = (o: string) => {
+    // A letra escolhida aparece imediatamente no espaço vazio.
+    setSelectedLetter(o);
+
     if (o === q.answer) {
       setMsg(
         `Parabéns! 🎉 Você formou ${q.word}!`
       );
 
+      speak(q.word);
       complete();
 
       setTimeout(() => {
         setMsg('');
+        setSelectedLetter('');
 
         setI(
-          (i + 1) %
+          (current) =>
+            (current + 1) %
             questions.length
         );
-      }, 700);
+      }, 1200);
     } else {
       setMsg(
-        'Quase! Tente novamente 😊'
+        'Quase! Veja a letra que você colocou e tente novamente 😊'
       );
     }
   };
 
   return (
     <Activity title={title}>
+      <p className="instruction">
+        Palavra {i + 1} de {questions.length}
+      </p>
+
       <div className="picture">
         {q.emoji}
       </div>
 
       <div className="pattern">
-        {q.pattern}
+        {displayedPattern}
       </div>
+
+      <p className="instruction">
+        Escolha a letra que completa a palavra.
+      </p>
 
       <div className="answers">
         {q.options.map(
           (o: string) => (
             <button
-              onClick={() =>
-                choose(o)
-              }
+              onClick={() => choose(o)}
               key={o}
             >
               {o}
@@ -973,9 +988,7 @@ function Quiz({
 
       <p
         className={
-          msg.startsWith(
-            'Parabéns'
-          )
+          msg.startsWith('Parabéns')
             ? 'good'
             : 'hint'
         }
