@@ -13,7 +13,10 @@ import {
   ClipboardCheck,
   BarChart3,
   Pencil,
-  RefreshCw
+  RefreshCw,
+  Lock,
+  KeyRound,
+  Trash2
 } from 'lucide-react';
 
 import Canvas, { type CanvasHandle } from './components/Canvas';
@@ -32,6 +35,7 @@ import {
 
 type Page =
   | 'role'
+  | 'teacher-login'
   | 'students'
   | 'assessment'
   | 'home'
@@ -90,6 +94,16 @@ type LearningState = {
 };
 
 const STUDENTS_KEY = 'alfabetizacao-students';
+const TEACHER_PASSWORD_KEY = 'alfabetizacao-teacher-password';
+const DEFAULT_TEACHER_PASSWORD = '1234';
+
+const loadTeacherPassword = () =>
+  localStorage.getItem(TEACHER_PASSWORD_KEY) ??
+  DEFAULT_TEACHER_PASSWORD;
+
+const saveTeacherPassword = (password: string) => {
+  localStorage.setItem(TEACHER_PASSWORD_KEY, password);
+};
 
 const cloneInitialProgress = (): Progress =>
   JSON.parse(JSON.stringify(initialProgress)) as Progress;
@@ -278,6 +292,9 @@ export default function App() {
   const [teacherSelectedId, setTeacherSelectedId] =
     useState<string | null>(null);
 
+  const [teacherRefresh, setTeacherRefresh] = useState(0);
+  void teacherRefresh;
+
   const [progress, setProgress] =
     useState<Progress>(cloneInitialProgress());
 
@@ -423,6 +440,54 @@ export default function App() {
     setTeacherSelectedId((id) => id);
   };
 
+  const clearStudentActivityHistory = (studentId: string) => {
+    const currentProgress = loadStudentProgress(studentId);
+
+    const nextProgress: Progress = {
+      ...currentProgress,
+      history: []
+    };
+
+    localStorage.setItem(
+      studentProgressKey(studentId),
+      JSON.stringify(nextProgress)
+    );
+
+    if (activeStudentId === studentId) {
+      setProgress(nextProgress);
+    }
+
+    setTeacherRefresh((current) => current + 1);
+  };
+
+  const changeTeacherPassword = (
+    currentPassword: string,
+    newPassword: string
+  ): { ok: boolean; message: string } => {
+    if (currentPassword !== loadTeacherPassword()) {
+      return {
+        ok: false,
+        message: 'A senha atual está incorreta.'
+      };
+    }
+
+    const cleanPassword = newPassword.trim();
+
+    if (cleanPassword.length < 4) {
+      return {
+        ok: false,
+        message: 'A nova senha precisa ter pelo menos 4 caracteres.'
+      };
+    }
+
+    saveTeacherPassword(cleanPassword);
+
+    return {
+      ok: true,
+      message: 'Senha alterada com sucesso! ✅'
+    };
+  };
+
   const registerAttempt = (correct: boolean) => {
     if (!activeStudentId) return;
 
@@ -542,8 +607,17 @@ export default function App() {
         onStudent={() => setPage('students')}
         onTeacher={() => {
           setTeacherSelectedId(null);
-          setPage('adult');
+          setPage('teacher-login');
         }}
+      />
+    );
+  }
+
+  if (page === 'teacher-login') {
+    return (
+      <TeacherLogin
+        onSuccess={() => setPage('adult')}
+        onBack={() => setPage('role')}
       />
     );
   }
@@ -594,6 +668,8 @@ export default function App() {
           setTeacherSelectedId(student.id)
         }
         onChangeLevel={updateTeacherLevel}
+        onClearActivityHistory={clearStudentActivityHistory}
+        onChangePassword={changeTeacherPassword}
         onBack={() => setPage('role')}
       />
     );
@@ -852,6 +928,83 @@ function RoleSelection({
             </small>
           </button>
         </div>
+      </section>
+    </div>
+  );
+}
+
+
+/* ===========================
+   LOGIN DO PROFESSOR
+=========================== */
+
+function TeacherLogin({
+  onSuccess,
+  onBack
+}: {
+  onSuccess: () => void;
+  onBack: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+
+  const enter = () => {
+    if (password === loadTeacherPassword()) {
+      setMessage('');
+      onSuccess();
+      return;
+    }
+
+    setMessage('Senha incorreta. Tente novamente.');
+  };
+
+  return (
+    <div className="app teacher-login-area">
+      <section className="teacher-login-card">
+        <button className="back" onClick={onBack}>
+          <ArrowLeft />
+          Voltar
+        </button>
+
+        <div className="teacher-login-icon">
+          <Lock size={34} />
+        </div>
+
+        <h1>Área do Professor</h1>
+
+        <p>
+          Digite a senha para acessar os dados pedagógicos dos
+          alunos.
+        </p>
+
+        <label className="teacher-login-label">
+          Senha
+          <div className="teacher-password-field">
+            <KeyRound size={20} />
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') enter();
+              }}
+              placeholder="Digite a senha"
+              autoFocus
+            />
+          </div>
+        </label>
+
+        <button className="primary" onClick={enter}>
+          <Lock size={18} />
+          Entrar
+        </button>
+
+        {message && <p className="teacher-login-error">{message}</p>}
+
+        <small className="teacher-login-help">
+          A senha inicial do sistema é <b>1234</b>. Depois de
+          entrar, o professor pode alterá-la no painel.
+        </small>
       </section>
     </div>
   );
@@ -2592,6 +2745,8 @@ function TeacherArea({
   onDeleteStudent,
   onViewStudent,
   onChangeLevel,
+  onClearActivityHistory,
+  onChangePassword,
   onBack
 }: {
   students: Student[];
@@ -2608,11 +2763,19 @@ function TeacherArea({
     studentId: string,
     level: Level | null
   ) => void;
+  onClearActivityHistory: (studentId: string) => void;
+  onChangePassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => { ok: boolean; message: string };
   onBack: () => void;
 }) {
   const [studentName, setStudentName] = useState('');
   const [studentAvatar, setStudentAvatar] = useState('🧒');
   const [message, setMessage] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
 
   const avatars = ['🧒', '👧', '👦', '🧑', '👩', '👨'];
 
@@ -2626,6 +2789,20 @@ function TeacherArea({
 
     setStudentName('');
     setMessage('Aluno cadastrado com sucesso! ✅');
+  };
+
+  const updatePassword = () => {
+    const result = onChangePassword(
+      currentPassword,
+      newPassword
+    );
+
+    setPasswordMessage(result.message);
+
+    if (result.ok) {
+      setCurrentPassword('');
+      setNewPassword('');
+    }
   };
 
   const accuracy =
@@ -2699,6 +2876,60 @@ function TeacherArea({
             </button>
 
             {message && <p className="good">{message}</p>}
+          </div>
+
+          <div className="gameCard teacher-security-card">
+            <h3>
+              <Lock size={20} /> Segurança do professor
+            </h3>
+
+            <p>
+              Altere a senha usada para entrar no painel do
+              professor.
+            </p>
+
+            <div className="teacher-security-grid">
+              <label>
+                Senha atual
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) =>
+                    setCurrentPassword(event.target.value)
+                  }
+                  placeholder="Senha atual"
+                />
+              </label>
+
+              <label>
+                Nova senha
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) =>
+                    setNewPassword(event.target.value)
+                  }
+                  placeholder="Nova senha"
+                />
+              </label>
+            </div>
+
+            <button className="secondary" onClick={updatePassword}>
+              <KeyRound size={18} />
+              Alterar senha
+            </button>
+
+            {passwordMessage && (
+              <p
+                className={
+                  passwordMessage.includes('sucesso')
+                    ? 'good'
+                    : 'hint'
+                }
+              >
+                {passwordMessage}
+              </p>
+            )}
           </div>
 
           <div className="grid" style={{ marginTop: '24px' }}>
@@ -2921,6 +3152,69 @@ function TeacherArea({
                         automaticamente conforme o desempenho.
                       </p>
                     )}
+                </div>
+
+                <div
+                  className="gameCard"
+                  style={{ marginTop: '20px' }}
+                >
+                  <div className="teacher-card-title-row">
+                    <h3>📋 Histórico de atividades</h3>
+
+                    <button
+                      className="danger-button"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Limpar o histórico de atividades de ${selectedStudent.name}? Os pontos, estrelas, nível e progresso continuarão salvos.`
+                          )
+                        ) {
+                          onClearActivityHistory(
+                            selectedStudent.id
+                          );
+                        }
+                      }}
+                      disabled={
+                        selectedProgress.history.length === 0
+                      }
+                    >
+                      <Trash2 size={17} />
+                      Limpar histórico
+                    </button>
+                  </div>
+
+                  <p className="instruction">
+                    Esta opção remove somente a lista de
+                    atividades registradas. Pontos, estrelas,
+                    habilidades e nível do aluno não são
+                    apagados.
+                  </p>
+
+                  {selectedProgress.history.length === 0 ? (
+                    <p>Nenhuma atividade registrada.</p>
+                  ) : (
+                    <div className="teacher-activity-history">
+                      {selectedProgress.history.map(
+                        (item, index) => (
+                          <div
+                            className="teacher-history-item"
+                            key={`${item.at}-${index}`}
+                          >
+                            <div>
+                              <b>{item.label}</b>
+                              <small>
+                                {new Date(
+                                  item.at
+                                ).toLocaleString('pt-BR')}
+                              </small>
+                            </div>
+
+                            <strong>+{item.score} PTS</strong>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div
