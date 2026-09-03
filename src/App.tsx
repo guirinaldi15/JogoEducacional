@@ -1893,50 +1893,95 @@ function Writing({
 
 const findLetterPool = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
+const letterWords: Record<string, string[]> = {
+  A: ['ABELHA', 'AVIÃO', 'ANEL'],
+  B: ['BOLA', 'BOCA', 'BOTA'],
+  C: ['CASA', 'CAMA', 'COPO'],
+  D: ['DADO', 'DENTE', 'DOCE'],
+  E: ['ELEFANTE', 'ESCADA', 'ESTRELA'],
+  F: ['FACA', 'FOCA', 'FLOR'],
+  G: ['GATO', 'GALO', 'GIRAFA'],
+  H: ['HIPOPÓTAMO', 'HOTEL', 'HOMEM'],
+  I: ['ILHA', 'IGREJA', 'IOIÔ'],
+  J: ['JACARÉ', 'JANELA', 'JOGO'],
+  K: ['KIWI', 'KARATÊ', 'KETCHUP'],
+  L: ['LEÃO', 'LATA', 'LOBO'],
+  M: ['MALA', 'MAPA', 'MOTO'],
+  N: ['NAVIO', 'NINHO', 'NARIZ'],
+  O: ['OVO', 'OLHO', 'ONÇA'],
+  P: ['PATO', 'PIPA', 'PATO'],
+  Q: ['QUEIJO', 'QUADRO', 'QUATI'],
+  R: ['RATO', 'REDE', 'RODA'],
+  S: ['SAPO', 'SUCO', 'SINO'],
+  T: ['TATU', 'TOMATE', 'TIGRE'],
+  U: ['UVA', 'URSO', 'UNHA'],
+  V: ['VACA', 'VELA', 'VASO'],
+  W: ['WIFI', 'WEB', 'WAFFLE'],
+  X: ['XÍCARA', 'XADREZ', 'XALE'],
+  Y: ['YOGA', 'YAKISOBA', 'YOUTUBE'],
+  Z: ['ZEBRA', 'ZERO', 'ZÍPER']
+};
+
 const combineGames = [
-  {
-    emoji: '🐱',
-    answer: 'GATO',
-    options: ['PATO', 'GATO', 'BOLA']
-  },
-  {
-    emoji: '🐄',
-    answer: 'VACA',
-    options: ['VACA', 'CASA', 'SAPO']
-  },
-  {
-    emoji: '🦆',
-    answer: 'PATO',
-    options: ['MALA', 'PATO', 'RATO']
-  },
-  {
-    emoji: '🐢',
-    answer: 'TATU',
-    options: ['TATU', 'GATO', 'MOTO']
-  },
-  {
-    emoji: '⚽',
-    answer: 'BOLA',
-    options: ['BOTA', 'BOLA', 'BOCA']
-  },
-  {
-    emoji: '🏠',
-    answer: 'CASA',
-    options: ['CASA', 'MALA', 'MAPA']
-  }
+  { emoji: '🐱', answer: 'GATO', options: ['PATO', 'GATO', 'BOLA'] },
+  { emoji: '🐄', answer: 'VACA', options: ['VACA', 'CASA', 'SAPO'] },
+  { emoji: '🦆', answer: 'PATO', options: ['MALA', 'PATO', 'RATO'] },
+  { emoji: '🐢', answer: 'TATU', options: ['TATU', 'GATO', 'MOTO'] },
+  { emoji: '⚽', answer: 'BOLA', options: ['BOTA', 'BOLA', 'BOCA'] },
+  { emoji: '🏠', answer: 'CASA', options: ['CASA', 'MALA', 'MAPA'] },
+  { emoji: '🐸', answer: 'SAPO', options: ['SAPO', 'SINO', 'SUCO'] },
+  { emoji: '🐭', answer: 'RATO', options: ['GATO', 'RATO', 'PATO'] },
+  { emoji: '🦁', answer: 'LEÃO', options: ['LOBO', 'LEÃO', 'GATO'] },
+  { emoji: '🐺', answer: 'LOBO', options: ['LEÃO', 'LOBO', 'RATO'] },
+  { emoji: '🍇', answer: 'UVA', options: ['UVA', 'OVO', 'SUCO'] },
+  { emoji: '🥚', answer: 'OVO', options: ['UVA', 'OVO', 'BOLA'] },
+  { emoji: '🚢', answer: 'NAVIO', options: ['MAPA', 'MOTO', 'NAVIO'] },
+  { emoji: '🦓', answer: 'ZEBRA', options: ['VACA', 'ZEBRA', 'GIRAFA'] },
+  { emoji: '🧀', answer: 'QUEIJO', options: ['QUEIJO', 'DOCE', 'BOLO'] },
+  { emoji: '☕', answer: 'XÍCARA', options: ['COPO', 'XÍCARA', 'VASO'] },
+  { emoji: '🌼', answer: 'FLOR', options: ['FLOR', 'FACA', 'FOCA'] },
+  { emoji: '🐝', answer: 'ABELHA', options: ['ABELHA', 'AVIÃO', 'ANEL'] },
+  { emoji: '🐊', answer: 'JACARÉ', options: ['JANELA', 'JACARÉ', 'GIRAFA'] },
+  { emoji: '🦛', answer: 'HIPOPÓTAMO', options: ['ELEFANTE', 'HIPOPÓTAMO', 'JACARÉ'] },
+  { emoji: '🐻', answer: 'URSO', options: ['URSO', 'GATO', 'LOBO'] },
+  { emoji: '🐯', answer: 'TIGRE', options: ['LEÃO', 'TIGRE', 'ZEBRA'] },
+  { emoji: '🍅', answer: 'TOMATE', options: ['TOMATE', 'QUEIJO', 'UVA'] },
+  { emoji: '🥝', answer: 'KIWI', options: ['UVA', 'KIWI', 'TOMATE'] },
+  { emoji: '👃', answer: 'NARIZ', options: ['BOCA', 'NARIZ', 'OLHO'] },
+  { emoji: '👁️', answer: 'OLHO', options: ['OLHO', 'BOCA', 'UNHA'] },
+  { emoji: '🦷', answer: 'DENTE', options: ['DENTE', 'NARIZ', 'BOCA'] },
+  { emoji: '🕯️', answer: 'VELA', options: ['VASO', 'VELA', 'REDE'] },
+  { emoji: '🪁', answer: 'PIPA', options: ['PIPA', 'MAPA', 'MALA'] },
+  { emoji: '🎲', answer: 'DADO', options: ['DADO', 'DOCE', 'DENTE'] }
 ];
 
 const organizeWords = [
-  'CASA',
-  'BOLA',
-  'PATO',
-  'SAPO',
-  'MALA',
-  'GATO',
-  'VACA',
-  'TATU',
-  'RATO',
-  'MAPA'
+  'CASA', 'BOLA', 'PATO', 'SAPO', 'MALA',
+  'GATO', 'VACA', 'TATU', 'RATO', 'MAPA',
+  'DADO', 'BOCA', 'MOTO', 'LATA', 'PIPA',
+  'BOTA', 'CAMA', 'LOBO', 'SUCO', 'UVA',
+  'OVO', 'LEÃO', 'NAVIO', 'ZEBRA', 'FLOR',
+  'FOCA', 'URSO', 'VELA', 'VASO', 'RODA',
+  'SINO', 'REDE', 'UNHA', 'OLHO', 'NARIZ',
+  'TIGRE', 'DOCE', 'COPO', 'ANEL', 'JOGO'
+];
+
+const completeWordGames = [
+  { emoji: '🐱', pattern: 'G _ T O', answer: 'A', options: ['A', 'O', 'U'], word: 'GATO' },
+  { emoji: '🏠', pattern: 'C A _ A', answer: 'S', options: ['S', 'T', 'P'], word: 'CASA' },
+  { emoji: '⚽', pattern: 'B O _ A', answer: 'L', options: ['L', 'R', 'M'], word: 'BOLA' },
+  { emoji: '🐸', pattern: 'S A _ O', answer: 'P', options: ['P', 'T', 'L'], word: 'SAPO' },
+  { emoji: '🐄', pattern: 'V A _ A', answer: 'C', options: ['C', 'T', 'P'], word: 'VACA' },
+  { emoji: '🐭', pattern: 'R A _ O', answer: 'T', options: ['T', 'P', 'D'], word: 'RATO' },
+  { emoji: '🍇', pattern: '_ V A', answer: 'U', options: ['U', 'O', 'A'], word: 'UVA' },
+  { emoji: '🥚', pattern: 'O _ O', answer: 'V', options: ['V', 'B', 'D'], word: 'OVO' },
+  { emoji: '🦓', pattern: 'Z E _ R A', answer: 'B', options: ['B', 'P', 'D'], word: 'ZEBRA' },
+  { emoji: '🚢', pattern: 'N A _ I O', answer: 'V', options: ['V', 'B', 'F'], word: 'NAVIO' },
+  { emoji: '🌼', pattern: 'F L _ R', answer: 'O', options: ['O', 'A', 'E'], word: 'FLOR' },
+  { emoji: '🐻', pattern: 'U R _ O', answer: 'S', options: ['S', 'T', 'P'], word: 'URSO' },
+  { emoji: '🐯', pattern: 'T I _ R E', answer: 'G', options: ['G', 'C', 'D'], word: 'TIGRE' },
+  { emoji: '👃', pattern: 'N A R _ Z', answer: 'I', options: ['I', 'A', 'O'], word: 'NARIZ' },
+  { emoji: '🕯️', pattern: 'V E _ A', answer: 'L', options: ['L', 'R', 'M'], word: 'VELA' }
 ];
 
 const shuffle = <T,>(items: readonly T[]) =>
@@ -1959,19 +2004,66 @@ function Games({
   const [letterOptions, setLetterOptions] = useState<string[]>([]);
   const [letterMessage, setLetterMessage] = useState('');
 
-  const [combineIndex, setCombineIndex] = useState(0);
+  const [combineIndex, setCombineIndex] = useState(
+    Math.floor(Math.random() * combineGames.length)
+  );
   const [combineMessage, setCombineMessage] = useState('');
 
-  const [wordIndex, setWordIndex] = useState(0);
+  const [wordIndex, setWordIndex] = useState(
+    Math.floor(Math.random() * organizeWords.length)
+  );
   const [order, setOrder] = useState<string[]>([]);
   const [organizeMessage, setOrganizeMessage] = useState('');
 
+  const [completeIndex, setCompleteIndex] = useState(
+    Math.floor(Math.random() * completeWordGames.length)
+  );
+  const [completeLetter, setCompleteLetter] = useState('');
+  const [completeMessage, setCompleteMessage] = useState('');
+
   const combine = combineGames[combineIndex];
   const organizeWord = organizeWords[wordIndex];
+  const completeGame = completeWordGames[completeIndex];
+
+  const nextRandomIndex = (length: number, current: number) => {
+    if (length <= 1) return 0;
+
+    let next = current;
+
+    while (next === current) {
+      next = Math.floor(Math.random() * length);
+    }
+
+    return next;
+  };
+
+  const refreshLetterGame = (newTarget?: string) => {
+    const chosen =
+      newTarget ??
+      findLetterPool[
+        Math.floor(Math.random() * findLetterPool.length)
+      ];
+
+    const distractors = shuffle(
+      findLetterPool.filter((letter) => letter !== chosen)
+    ).slice(0, 5);
+
+    setTarget(chosen);
+    setLetterOptions(shuffle([chosen, ...distractors]));
+  };
+
+  useEffect(() => {
+    refreshLetterGame(target);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      speak(`ENCONTRE A LETRA ${target}`);
+      const examples = letterWords[target] ?? [];
+      const exampleText = examples.length
+        ? `COMO EM ${examples.join(', ')}`
+        : '';
+
+      speak(`ENCONTRE A LETRA ${target}. ${exampleText}`);
     }, 450);
 
     return () => window.clearTimeout(timer);
@@ -1997,44 +2089,42 @@ function Games({
     return () => window.clearTimeout(timer);
   }, [wordIndex]);
 
-  const refreshLetterGame = (newTarget?: string) => {
-    const chosen =
-      newTarget ??
-      findLetterPool[
-        Math.floor(Math.random() * findLetterPool.length)
-      ];
-
-    const distractors = shuffle(
-      findLetterPool.filter((letter) => letter !== chosen)
-    ).slice(0, 5);
-
-    setTarget(chosen);
-    setLetterOptions(shuffle([chosen, ...distractors]));
-  };
-
   useEffect(() => {
-    refreshLetterGame(target);
-  }, []);
+    const timer = window.setTimeout(() => {
+      speak(
+        `COMPLETE A PALAVRA ${completeGame.word}. ESCOLHA A LETRA QUE ESTÁ FALTANDO.`
+      );
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [completeIndex]);
 
   const chooseLetter = (letter: string) => {
     if (letter === target) {
-      setLetterMessage(`Achou a letra ${target}! 🎉`);
+      const examples = letterWords[target] ?? [];
+      const example =
+        examples[Math.floor(Math.random() * examples.length)];
+
+      setLetterMessage(
+        `ACHOU A LETRA ${target}! ${example ? `${target} DE ${example}!` : ''} 🎉`
+      );
+
       complete('Jogo: encontre a letra', 10, 'letters');
 
       setTimeout(() => {
         setLetterMessage('');
         refreshLetterGame();
-      }, 900);
+      }, 1100);
     } else {
       wrong();
-      setLetterMessage('Quase! Tente outra letra 😊');
+      setLetterMessage('QUASE! TENTE OUTRA LETRA 😊');
     }
   };
 
   const chooseCombine = (word: string) => {
     if (word === combine.answer) {
       setCombineMessage(
-        `Combinação certa! ${combine.emoji} = ${combine.answer} 🎉`
+        `MUITO BEM! ${combine.emoji} É ${combine.answer}! 🎉`
       );
 
       speak(combine.answer);
@@ -2042,14 +2132,14 @@ function Games({
 
       setTimeout(() => {
         setCombineMessage('');
-        setCombineIndex(
-          (current) => (current + 1) % combineGames.length
+        setCombineIndex((current) =>
+          nextRandomIndex(combineGames.length, current)
         );
-      }, 1000);
+      }, 1100);
     } else {
       wrong();
       setCombineMessage(
-        'Quase! Observe a imagem e tente outra palavra 😊'
+        'QUASE! OLHE A IMAGEM E TENTE OUTRA PALAVRA 😊'
       );
     }
   };
@@ -2061,22 +2151,43 @@ function Games({
 
   const checkWord = () => {
     if (order.join('') === organizeWord) {
-      setOrganizeMessage(`${organizeWord} formada! 🌟`);
+      setOrganizeMessage(`${organizeWord} FORMADA! 🌟`);
       speak(organizeWord);
       complete('Jogo: organize a palavra', 15, 'words');
 
       setTimeout(() => {
         setOrder([]);
         setOrganizeMessage('');
-        setWordIndex(
-          (current) => (current + 1) % organizeWords.length
+        setWordIndex((current) =>
+          nextRandomIndex(organizeWords.length, current)
         );
-      }, 1000);
+      }, 1100);
     } else {
       wrong();
-      setOrganizeMessage(
-        `Quase! Tente montar ${organizeWord.split('').join('-')} 😊`
+      setOrganizeMessage('QUASE! LIMPE E TENTE OUTRA VEZ 😊');
+    }
+  };
+
+  const chooseCompleteLetter = (letter: string) => {
+    setCompleteLetter(letter);
+
+    if (letter === completeGame.answer) {
+      setCompleteMessage(
+        `MUITO BEM! VOCÊ FORMOU ${completeGame.word}! 🎉`
       );
+      speak(completeGame.word);
+      complete('Jogo: complete a palavra', 12, 'words');
+
+      setTimeout(() => {
+        setCompleteLetter('');
+        setCompleteMessage('');
+        setCompleteIndex((current) =>
+          nextRandomIndex(completeWordGames.length, current)
+        );
+      }, 1100);
+    } else {
+      wrong();
+      setCompleteMessage('QUASE! TENTE OUTRA LETRA 😊');
     }
   };
 
@@ -2085,36 +2196,45 @@ function Games({
     [organizeWord]
   );
 
+  const displayedCompletePattern = completeLetter
+    ? completeGame.pattern.replace('_', completeLetter)
+    : completeGame.pattern;
+
   return (
     <section>
-      <h2>🎮 Jogos educativos variados</h2>
+      <h2>🎮 JOGOS EDUCATIVOS VARIADOS</h2>
 
       <button
         className="audio"
         onClick={() =>
           speak(
-            'Aqui você pode brincar com três jogos. No primeiro, encontre a letra pedida. No segundo, combine a imagem com a palavra. No terceiro, organize as letras para formar a palavra.'
+            'AQUI TEM QUATRO JOGOS DIFERENTES. AS LETRAS, IMAGENS E PALAVRAS MUDAM A CADA RODADA.'
           )
         }
         style={{ marginBottom: '18px' }}
       >
         <Volume2 />
-        Ouvir como jogar
+        OUVIR COMO JOGAR
       </button>
 
       <div className="gameCard">
-        <h3>Jogo 1 — Encontre a letra</h3>
+        <h3>JOGO 1 — ENCONTRE A LETRA</h3>
 
         <p>
-          Encontre a letra <b>{target}</b>
+          ENCONTRE A LETRA <b>{target}</b>
         </p>
 
         <button
           className="audio"
-          onClick={() => speak(`Encontre a letra ${target}`)}
+          onClick={() => {
+            const examples = letterWords[target] ?? [];
+            speak(
+              `ENCONTRE A LETRA ${target}. ${examples.length ? `COMO EM ${examples.join(', ')}` : ''}`
+            );
+          }}
         >
           <Volume2 />
-          Ouvir
+          OUVIR
         </button>
 
         <div className="answers">
@@ -2128,14 +2248,26 @@ function Games({
           ))}
         </div>
 
-        <p className="good">{letterMessage}</p>
+        {letterMessage && <p className="good">{letterMessage}</p>}
       </div>
 
       <div className="grid mini">
         <div className="gameCard">
-          <h3>Jogo 2 — Combine</h3>
+          <h3>JOGO 2 — IMAGEM E PALAVRA</h3>
 
           <div className="picture">{combine.emoji}</div>
+
+          <button
+            className="audio"
+            onClick={() =>
+              speak(
+                `ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combine.options.join(', ')}`
+              )
+            }
+          >
+            <Volume2 />
+            OUVIR
+          </button>
 
           <div className="answers words">
             {combine.options.map((word) => (
@@ -2148,15 +2280,11 @@ function Games({
             ))}
           </div>
 
-          <p className="good">{combineMessage}</p>
+          {combineMessage && <p className="good">{combineMessage}</p>}
         </div>
 
         <div className="gameCard">
-          <h3>Jogo 3 — Organize</h3>
-
-          <p>
-            Monte a palavra <b>{organizeWord}</b>
-          </p>
+          <h3>JOGO 3 — ORGANIZE A PALAVRA</h3>
 
           <div className="pattern">
             {order.length
@@ -2166,6 +2294,18 @@ function Games({
                   .map(() => '_')
                   .join(' ')}
           </div>
+
+          <button
+            className="audio"
+            onClick={() =>
+              speak(
+                `ORGANIZE AS LETRAS PARA FORMAR ${organizeWord}`
+              )
+            }
+          >
+            <Volume2 />
+            OUVIR PALAVRA
+          </button>
 
           <div className="answers">
             {shuffledLetters.map((letter, index) => (
@@ -2186,19 +2326,66 @@ function Games({
                 setOrganizeMessage('');
               }}
             >
-              Limpar
+              LIMPAR
             </button>
 
             <button
               className="primary"
               onClick={checkWord}
             >
-              Conferir
+              CONFERIR
             </button>
           </div>
 
-          <p className="good">{organizeMessage}</p>
+          {organizeMessage && (
+            <p className="good">{organizeMessage}</p>
+          )}
         </div>
+      </div>
+
+      <div className="gameCard" style={{ marginTop: '20px' }}>
+        <h3>JOGO 4 — COMPLETE A PALAVRA</h3>
+
+        <div className="picture">{completeGame.emoji}</div>
+
+        <div className="pattern">
+          {displayedCompletePattern}
+        </div>
+
+        <button
+          className="audio"
+          onClick={() =>
+            speak(
+              `COMPLETE A PALAVRA ${completeGame.word}. ESCOLHA A LETRA QUE ESTÁ FALTANDO.`
+            )
+          }
+        >
+          <Volume2 />
+          OUVIR
+        </button>
+
+        <div className="answers">
+          {completeGame.options.map((letter) => (
+            <button
+              key={letter}
+              onClick={() => chooseCompleteLetter(letter)}
+            >
+              {letter}
+            </button>
+          ))}
+        </div>
+
+        {completeMessage && (
+          <p
+            className={
+              completeMessage.includes('MUITO BEM')
+                ? 'good'
+                : 'hint'
+            }
+          >
+            {completeMessage}
+          </p>
+        )}
       </div>
     </section>
   );
