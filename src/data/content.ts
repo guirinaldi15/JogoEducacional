@@ -6,16 +6,43 @@ export const letters = [
   ['E', 'e', 'ELEFANTE', '🐘'],
   ['F', 'f', 'FLOR', '🌼'],
   ['G', 'g', 'GATO', '🐱'],
+  ['H', 'h', 'HIPOPÓTAMO', '🦛'],
+  ['I', 'i', 'ILHA', '🏝️'],
+  ['J', 'j', 'JACARÉ', '🐊'],
+  ['K', 'k', 'KIWI', '🥝'],
+  ['L', 'l', 'LEÃO', '🦁'],
   ['M', 'm', 'MACACO', '🐒'],
+  ['N', 'n', 'NAVIO', '🚢'],
+  ['O', 'o', 'OVO', '🥚'],
   ['P', 'p', 'PATO', '🦆'],
-  ['S', 's', 'SAPO', '🐸']
+  ['Q', 'q', 'QUEIJO', '🧀'],
+  ['R', 'r', 'RATO', '🐭'],
+  ['S', 's', 'SAPO', '🐸'],
+  ['T', 't', 'TATU', '🐢'],
+  ['U', 'u', 'UVA', '🍇'],
+  ['V', 'v', 'VACA', '🐄'],
+  ['W', 'w', 'WIFI', '📶'],
+  ['X', 'x', 'XÍCARA', '☕'],
+  ['Y', 'y', 'YOGA', '🧘'],
+  ['Z', 'z', 'ZEBRA', '🦓']
 ] as const;
 
 export const syllables = [
   'BA', 'BE', 'BI', 'BO', 'BU',
   'CA', 'CE', 'CI', 'CO', 'CU',
+  'DA', 'DE', 'DI', 'DO', 'DU',
+  'FA', 'FE', 'FI', 'FO', 'FU',
+  'GA', 'GE', 'GI', 'GO', 'GU',
+  'JA', 'JE', 'JI', 'JO', 'JU',
+  'LA', 'LE', 'LI', 'LO', 'LU',
   'MA', 'ME', 'MI', 'MO', 'MU',
-  'PA', 'PE', 'PI', 'PO', 'PU'
+  'NA', 'NE', 'NI', 'NO', 'NU',
+  'PA', 'PE', 'PI', 'PO', 'PU',
+  'RA', 'RE', 'RI', 'RO', 'RU',
+  'SA', 'SE', 'SI', 'SO', 'SU',
+  'TA', 'TE', 'TI', 'TO', 'TU',
+  'VA', 'VE', 'VI', 'VO', 'VU',
+  'ZA', 'ZE', 'ZI', 'ZO', 'ZU'
 ];
 
 export const wordQuestions = [
@@ -158,6 +185,41 @@ export const wordQuestions = [
     options: ['T', 'P', 'C'],
     answer: 'T',
     word: 'TATU'
+  },
+  {
+    emoji: '🍇',
+    pattern: '_ V A',
+    options: ['U', 'O', 'A'],
+    answer: 'U',
+    word: 'UVA'
+  },
+  {
+    emoji: '🥚',
+    pattern: 'O _ O',
+    options: ['V', 'B', 'D'],
+    answer: 'V',
+    word: 'OVO'
+  },
+  {
+    emoji: '🦁',
+    pattern: 'L E _ O',
+    options: ['Ã', 'A', 'O'],
+    answer: 'Ã',
+    word: 'LEÃO'
+  },
+  {
+    emoji: '🚢',
+    pattern: 'N A _ I O',
+    options: ['V', 'B', 'F'],
+    answer: 'V',
+    word: 'NAVIO'
+  },
+  {
+    emoji: '🦓',
+    pattern: 'Z E _ R A',
+    options: ['B', 'P', 'D'],
+    answer: 'B',
+    word: 'ZEBRA'
   }
 ];
 
@@ -176,5 +238,40 @@ export const readingQuestions = [
     emoji: '🏠',
     options: ['CASA', 'MALA', 'DADO'],
     answer: 'CASA'
+  },
+  {
+    emoji: '🐄',
+    options: ['VACA', 'RATO', 'PATO'],
+    answer: 'VACA'
+  },
+  {
+    emoji: '🐢',
+    options: ['TATU', 'SAPO', 'GATO'],
+    answer: 'TATU'
+  },
+  {
+    emoji: '🍇',
+    options: ['UVA', 'OVO', 'BOLA'],
+    answer: 'UVA'
+  },
+  {
+    emoji: '🥚',
+    options: ['OVO', 'UVA', 'CASA'],
+    answer: 'OVO'
+  },
+  {
+    emoji: '🦁',
+    options: ['LEÃO', 'LOBO', 'GATO'],
+    answer: 'LEÃO'
+  },
+  {
+    emoji: '🚢',
+    options: ['NAVIO', 'MAPA', 'MOTO'],
+    answer: 'NAVIO'
+  },
+  {
+    emoji: '🦓',
+    options: ['ZEBRA', 'VACA', 'SAPO'],
+    answer: 'ZEBRA'
   }
 ];
