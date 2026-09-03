@@ -9,7 +9,11 @@ import {
   Volume2,
   ArrowLeft,
   Star,
-  ShieldCheck
+  ShieldCheck,
+  ClipboardCheck,
+  BarChart3,
+  Pencil,
+  RefreshCw
 } from 'lucide-react';
 
 import Canvas, { type CanvasHandle } from './components/Canvas';
@@ -29,6 +33,7 @@ import {
 type Page =
   | 'role'
   | 'students'
+  | 'assessment'
   | 'home'
   | 'learn'
   | 'letters'
@@ -41,6 +46,22 @@ type Page =
   | 'profile'
   | 'adult';
 
+type Level =
+  | 'Garatuja'
+  | 'Pré-silábico'
+  | 'Silábico sem valor'
+  | 'Silábico com valor'
+  | 'Silábico-Alfabético'
+  | 'Alfabético';
+
+const LEVELS: Level[] = [
+  'Garatuja',
+  'Pré-silábico',
+  'Silábico sem valor',
+  'Silábico com valor',
+  'Silábico-Alfabético',
+  'Alfabético'
+];
 
 type Student = {
   id: string;
@@ -49,13 +70,40 @@ type Student = {
   createdAt: string;
 };
 
+type LearningState = {
+  assessmentCompleted: boolean;
+  assessmentScore: number;
+  initialLevel: Level | null;
+  suggestedLevel: Level | null;
+  manualLevel: Level | null;
+  correctAnswers: number;
+  wrongAnswers: number;
+  totalAttempts: number;
+  updatedAt: string | null;
+};
+
 const STUDENTS_KEY = 'alfabetizacao-students';
 
 const cloneInitialProgress = (): Progress =>
   JSON.parse(JSON.stringify(initialProgress)) as Progress;
 
+const initialLearningState: LearningState = {
+  assessmentCompleted: false,
+  assessmentScore: 0,
+  initialLevel: null,
+  suggestedLevel: null,
+  manualLevel: null,
+  correctAnswers: 0,
+  wrongAnswers: 0,
+  totalAttempts: 0,
+  updatedAt: null
+};
+
 const studentProgressKey = (id: string) =>
   `alfabetizacao-progress-${id}`;
+
+const studentLearningKey = (id: string) =>
+  `alfabetizacao-learning-${id}`;
 
 const loadStudents = (): Student[] => {
   try {
@@ -75,22 +123,108 @@ const loadStudentProgress = (id: string): Progress => {
   }
 };
 
+const loadLearningState = (id: string): LearningState => {
+  try {
+    const saved = localStorage.getItem(studentLearningKey(id));
+    return saved
+      ? { ...initialLearningState, ...JSON.parse(saved) }
+      : { ...initialLearningState };
+  } catch {
+    return { ...initialLearningState };
+  }
+};
 
-const speak = (t: string) => {
+const saveLearningState = (id: string, state: LearningState) => {
+  localStorage.setItem(studentLearningKey(id), JSON.stringify(state));
+};
+
+const speak = (text: string) => {
   if ('speechSynthesis' in window) {
     speechSynthesis.cancel();
-
-    const u = new SpeechSynthesisUtterance(t);
-
-    u.lang = 'pt-BR';
-    u.rate = 0.82;
-
-    speechSynthesis.speak(u);
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 0.82;
+    speechSynthesis.speak(utterance);
   }
 };
 
 const pct = (n: number, max: number) =>
-  Math.min(100, Math.round((n / max) * 100));
+  Math.min(100, Math.round((n / Math.max(max, 1)) * 100));
+
+const levelIndex = (level: Level | null) =>
+  level ? Math.max(0, LEVELS.indexOf(level)) : 0;
+
+const levelFromAssessmentScore = (score: number): Level => {
+  if (score <= 0) return 'Garatuja';
+  if (score === 1) return 'Pré-silábico';
+  if (score === 2) return 'Silábico sem valor';
+  if (score === 3) return 'Silábico com valor';
+  if (score === 4) return 'Silábico-Alfabético';
+  return 'Alfabético';
+};
+
+const calculateSuggestedLevel = (
+  state: LearningState,
+  progress: Progress
+): Level | null => {
+  if (!state.assessmentCompleted || !state.initialLevel) return null;
+
+  const base = levelIndex(state.initialLevel);
+  const attempts = state.totalAttempts;
+  const accuracy =
+    attempts > 0 ? state.correctAnswers / attempts : 0;
+
+  const lettersRate = progress.letters / 26;
+  const syllablesRate = progress.syllables / 75;
+  const wordsRate = progress.words / 25;
+
+  let activityLevel = base;
+
+  if (progress.activities >= 3 && lettersRate >= 0.15) {
+    activityLevel = Math.max(activityLevel, 1);
+  }
+
+  if (
+    progress.activities >= 6 &&
+    lettersRate >= 0.3 &&
+    accuracy >= 0.5
+  ) {
+    activityLevel = Math.max(activityLevel, 2);
+  }
+
+  if (
+    progress.activities >= 10 &&
+    syllablesRate >= 0.12 &&
+    accuracy >= 0.55
+  ) {
+    activityLevel = Math.max(activityLevel, 3);
+  }
+
+  if (
+    progress.activities >= 16 &&
+    wordsRate >= 0.2 &&
+    accuracy >= 0.65
+  ) {
+    activityLevel = Math.max(activityLevel, 4);
+  }
+
+  if (
+    progress.activities >= 24 &&
+    wordsRate >= 0.4 &&
+    accuracy >= 0.75
+  ) {
+    activityLevel = Math.max(activityLevel, 5);
+  }
+
+  if (attempts >= 10 && accuracy < 0.35) {
+    activityLevel = Math.max(0, activityLevel - 1);
+  }
+
+  return LEVELS[Math.min(5, activityLevel)];
+};
+
+const getCurrentLevel = (state: LearningState): Level | null =>
+  state.manualLevel ?? state.suggestedLevel ?? state.initialLevel;
 
 export default function App() {
   const [page, setPage] = useState<Page>('role');
@@ -107,31 +241,67 @@ export default function App() {
   const [progress, setProgress] =
     useState<Progress>(cloneInitialProgress());
 
+  const [learning, setLearning] =
+    useState<LearningState>({ ...initialLearningState });
+
   const [name, setName] = useState('Aluno');
   const [avatar, setAvatar] = useState('🧒');
 
   useEffect(() => {
-    localStorage.setItem(
-      STUDENTS_KEY,
-      JSON.stringify(students)
-    );
+    localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
   }, [students]);
 
   useEffect(() => {
     if (!activeStudentId) return;
-
     localStorage.setItem(
       studentProgressKey(activeStudentId),
       JSON.stringify(progress)
     );
   }, [progress, activeStudentId]);
 
+  useEffect(() => {
+    if (!activeStudentId) return;
+
+    setLearning((current) => {
+      if (!current.assessmentCompleted) return current;
+
+      const suggested = calculateSuggestedLevel(current, progress);
+
+      if (suggested === current.suggestedLevel) {
+        return current;
+      }
+
+      const next = {
+        ...current,
+        suggestedLevel: suggested,
+        updatedAt: new Date().toISOString()
+      };
+
+      saveLearningState(activeStudentId, next);
+      return next;
+    });
+  }, [progress, activeStudentId]);
+
+  useEffect(() => {
+    if (!activeStudentId) return;
+    saveLearningState(activeStudentId, learning);
+  }, [learning, activeStudentId]);
+
   const selectStudent = (student: Student) => {
+    const savedProgress = loadStudentProgress(student.id);
+    const savedLearning = loadLearningState(student.id);
+
     setActiveStudentId(student.id);
     setName(student.name);
     setAvatar(student.avatar);
-    setProgress(loadStudentProgress(student.id));
-    setPage('home');
+    setProgress(savedProgress);
+    setLearning(savedLearning);
+
+    if (savedLearning.assessmentCompleted) {
+      setPage('home');
+    } else {
+      setPage('assessment');
+    }
   };
 
   const addStudent = (
@@ -139,29 +309,23 @@ export default function App() {
     studentAvatar: string
   ) => {
     const cleanName = studentName.trim();
-
-    if (!cleanName) {
-      return false;
-    }
+    if (!cleanName) return false;
 
     const newStudent: Student = {
-      id: `${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: cleanName,
       avatar: studentAvatar,
       createdAt: new Date().toISOString()
     };
 
-    setStudents((current) => [
-      ...current,
-      newStudent
-    ]);
+    setStudents((current) => [...current, newStudent]);
 
     localStorage.setItem(
       studentProgressKey(newStudent.id),
       JSON.stringify(cloneInitialProgress())
     );
+
+    saveLearningState(newStudent.id, { ...initialLearningState });
 
     return true;
   };
@@ -172,14 +336,57 @@ export default function App() {
     );
 
     localStorage.removeItem(studentProgressKey(id));
+    localStorage.removeItem(studentLearningKey(id));
 
-    if (teacherSelectedId === id) {
-      setTeacherSelectedId(null);
-    }
+    if (teacherSelectedId === id) setTeacherSelectedId(null);
 
     if (activeStudentId === id) {
       setActiveStudentId(null);
+      setLearning({ ...initialLearningState });
+      setProgress(cloneInitialProgress());
     }
+  };
+
+  const updateTeacherLevel = (
+    studentId: string,
+    level: Level | null
+  ) => {
+    const current = loadLearningState(studentId);
+    const next = {
+      ...current,
+      manualLevel: level,
+      updatedAt: new Date().toISOString()
+    };
+
+    saveLearningState(studentId, next);
+
+    if (activeStudentId === studentId) {
+      setLearning(next);
+    }
+
+    setTeacherSelectedId((id) => id);
+  };
+
+  const registerAttempt = (correct: boolean) => {
+    if (!activeStudentId) return;
+
+    setLearning((current) => {
+      const next: LearningState = {
+        ...current,
+        correctAnswers:
+          current.correctAnswers + (correct ? 1 : 0),
+        wrongAnswers:
+          current.wrongAnswers + (correct ? 0 : 1),
+        totalAttempts: current.totalAttempts + 1,
+        updatedAt: new Date().toISOString()
+      };
+
+      next.suggestedLevel =
+        calculateSuggestedLevel(next, progress);
+
+      saveLearningState(activeStudentId, next);
+      return next;
+    });
   };
 
   const complete = (
@@ -187,24 +394,26 @@ export default function App() {
     score = 10,
     kind?: 'letters' | 'syllables' | 'words'
   ) => {
+    registerAttempt(true);
+
     setProgress((p) => {
-      let n = { ...p };
+      let next = { ...p };
 
       if (kind) {
-        n = {
-          ...n,
-          [kind]: Math.min(
-            (n as any)[kind] + 1,
-            kind === 'letters'
-              ? 26
-              : kind === 'syllables'
-              ? 20
-              : 20
-          )
+        const max =
+          kind === 'letters'
+            ? 26
+            : kind === 'syllables'
+            ? 75
+            : 25;
+
+        next = {
+          ...next,
+          [kind]: Math.min((next as any)[kind] + 1, max)
         };
       }
 
-      return reward(n, label, score);
+      return reward(next, label, score);
     });
 
     confetti({
@@ -212,6 +421,28 @@ export default function App() {
       spread: 70,
       origin: { y: 0.65 }
     });
+  };
+
+  const wrong = () => registerAttempt(false);
+
+  const finishAssessment = (score: number) => {
+    if (!activeStudentId) return;
+
+    const initialLevel = levelFromAssessmentScore(score);
+
+    const next: LearningState = {
+      ...learning,
+      assessmentCompleted: true,
+      assessmentScore: score,
+      initialLevel,
+      suggestedLevel: initialLevel,
+      manualLevel: null,
+      updatedAt: new Date().toISOString()
+    };
+
+    setLearning(next);
+    saveLearningState(activeStudentId, next);
+    setPage('home');
   };
 
   if (page === 'role') {
@@ -236,27 +467,42 @@ export default function App() {
     );
   }
 
+  if (page === 'assessment') {
+    return (
+      <InitialAssessment
+        name={name}
+        onFinish={finishAssessment}
+        onBack={() => setPage('students')}
+      />
+    );
+  }
+
   if (page === 'adult') {
     const selectedStudent =
       students.find(
         (student) => student.id === teacherSelectedId
       ) || null;
 
-    const selectedProgress =
-      selectedStudent
-        ? loadStudentProgress(selectedStudent.id)
-        : null;
+    const selectedProgress = selectedStudent
+      ? loadStudentProgress(selectedStudent.id)
+      : null;
+
+    const selectedLearning = selectedStudent
+      ? loadLearningState(selectedStudent.id)
+      : null;
 
     return (
       <TeacherArea
         students={students}
         selectedStudent={selectedStudent}
         selectedProgress={selectedProgress}
+        selectedLearning={selectedLearning}
         onAddStudent={addStudent}
         onDeleteStudent={deleteStudent}
         onViewStudent={(student) =>
           setTeacherSelectedId(student.id)
         }
+        onChangeLevel={updateTeacherLevel}
         onBack={() => setPage('role')}
       />
     );
@@ -305,20 +551,25 @@ export default function App() {
             name={name}
             avatar={avatar}
             progress={progress}
+            learning={learning}
             go={setPage}
           />
         )}
 
-        {page === 'learn' && (
-          <Learn go={setPage} />
-        )}
+        {page === 'learn' && <Learn go={setPage} />}
 
         {page === 'letters' && (
-          <Letters complete={complete} />
+          <Letters
+            complete={complete}
+            wrong={wrong}
+          />
         )}
 
         {page === 'syllables' && (
-          <Syllables complete={complete} />
+          <Syllables
+            complete={complete}
+            wrong={wrong}
+          />
         )}
 
         {page === 'words' && (
@@ -326,12 +577,9 @@ export default function App() {
             title="🧩 Forme a palavra"
             questions={wordQuestions}
             complete={() =>
-              complete(
-                'Formação de palavras',
-                15,
-                'words'
-              )
+              complete('Formação de palavras', 15, 'words')
             }
+            wrong={wrong}
           />
         )}
 
@@ -340,6 +588,7 @@ export default function App() {
             complete={() =>
               complete('Leitura', 15, 'words')
             }
+            wrong={wrong}
           />
         )}
 
@@ -348,11 +597,15 @@ export default function App() {
             complete={() =>
               complete('Prática de escrita', 12)
             }
+            wrong={wrong}
           />
         )}
 
         {page === 'games' && (
-          <Games complete={complete} />
+          <Games
+            complete={complete}
+            wrong={wrong}
+          />
         )}
 
         {page === 'achievements' && (
@@ -363,23 +616,22 @@ export default function App() {
           <Profile
             name={name}
             avatar={avatar}
-            setName={setName}
-            setAvatar={setAvatar}
             progress={progress}
+            learning={learning}
             go={setPage}
           />
         )}
       </main>
 
       <nav>
-        {nav.map(([p, I, l]) => (
+        {nav.map(([p, Icon, label]) => (
           <button
             className={page === p ? 'active' : ''}
             onClick={() => setPage(p as Page)}
             key={p}
           >
-            <I />
-            <span>{l}</span>
+            <Icon />
+            <span>{label}</span>
           </button>
         ))}
       </nav>
@@ -416,13 +668,9 @@ function RoleSelection({
           textAlign: 'center'
         }}
       >
-        <div style={{ fontSize: '64px' }}>
-          🌈📚
-        </div>
+        <div style={{ fontSize: '64px' }}>🌈📚</div>
 
-        <h1>
-          Alfabetização Infantil Interativa
-        </h1>
+        <h1>Alfabetização Infantil Interativa</h1>
 
         <p className="instruction">
           Escolha como você deseja entrar.
@@ -446,16 +694,12 @@ function RoleSelection({
               padding: '28px'
             }}
           >
-            <span style={{ fontSize: '72px' }}>
-              🧒
-            </span>
-
+            <span style={{ fontSize: '72px' }}>🧒</span>
             <b style={{ fontSize: '28px' }}>
               Entrar como Aluno
             </b>
-
             <small style={{ fontSize: '16px' }}>
-              Escolha seu perfil e comece a aprender.
+              Faça a sondagem inicial e comece a aprender.
             </small>
           </button>
 
@@ -468,16 +712,12 @@ function RoleSelection({
               padding: '28px'
             }}
           >
-            <span style={{ fontSize: '72px' }}>
-              👩‍🏫
-            </span>
-
+            <span style={{ fontSize: '72px' }}>👩‍🏫</span>
             <b style={{ fontSize: '28px' }}>
               Entrar como Professor
             </b>
-
             <small style={{ fontSize: '16px' }}>
-              Cadastre alunos e acompanhe o progresso.
+              Cadastre alunos, acompanhe níveis e progresso.
             </small>
           </button>
         </div>
@@ -500,13 +740,7 @@ function StudentSelection({
   onBack: () => void;
 }) {
   return (
-    <div
-      className="app"
-      style={{
-        minHeight: '100vh',
-        padding: '24px'
-      }}
-    >
+    <div className="app" style={{ minHeight: '100vh', padding: '24px' }}>
       <section
         style={{
           width: '100%',
@@ -514,21 +748,14 @@ function StudentSelection({
           margin: '0 auto'
         }}
       >
-        <button
-          className="back"
-          onClick={onBack}
-        >
+        <button className="back" onClick={onBack}>
           <ArrowLeft />
           Voltar
         </button>
 
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '60px' }}>
-            🎒✨
-          </div>
-
+          <div style={{ fontSize: '60px' }}>🎒✨</div>
           <h1>Quem vai aprender hoje?</h1>
-
           <p className="instruction">
             Escolha o seu nome para entrar no seu perfil.
           </p>
@@ -544,49 +771,214 @@ function StudentSelection({
               padding: '32px'
             }}
           >
-            <div style={{ fontSize: '54px' }}>
-              👩‍🏫
-            </div>
-
+            <div style={{ fontSize: '54px' }}>👩‍🏫</div>
             <h3>Nenhum aluno cadastrado</h3>
-
             <p>
               Peça para a professora cadastrar um aluno
               antes de entrar.
             </p>
           </div>
         ) : (
-          <div
-            className="grid"
-            style={{
-              marginTop: '32px'
-            }}
-          >
-            {students.map((student) => (
+          <div className="grid" style={{ marginTop: '32px' }}>
+            {students.map((student) => {
+              const learning = loadLearningState(student.id);
+              const level = getCurrentLevel(learning);
+
+              return (
+                <button
+                  className="module"
+                  key={student.id}
+                  onClick={() => onSelect(student)}
+                  style={{
+                    minHeight: '220px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span style={{ fontSize: '72px' }}>
+                    {student.avatar}
+                  </span>
+
+                  <b style={{ fontSize: '25px' }}>
+                    {student.name}
+                  </b>
+
+                  <small>
+                    {learning.assessmentCompleted
+                      ? `Nível atual: ${level}`
+                      : 'Sondagem inicial pendente'}
+                  </small>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ===========================
+   SONDAGEM INICIAL
+=========================== */
+
+const assessmentQuestions = [
+  {
+    title: 'Qual destes é uma letra?',
+    emoji: '🔤',
+    options: ['A', '🚗', '⭐'],
+    answer: 'A'
+  },
+  {
+    title: 'Qual opção tem duas letras juntas formando uma sílaba?',
+    emoji: '🧩',
+    options: ['BA', 'B', '⚽'],
+    answer: 'BA'
+  },
+  {
+    title: 'Qual letra começa a palavra GATO?',
+    emoji: '🐱',
+    options: ['G', 'P', 'M'],
+    answer: 'G'
+  },
+  {
+    title: 'Complete: C _ S A',
+    emoji: '🏠',
+    options: ['A', 'O', 'U'],
+    answer: 'A'
+  },
+  {
+    title: 'Qual palavra combina com a imagem?',
+    emoji: '⚽',
+    options: ['BOLA', 'CASA', 'PATO'],
+    answer: 'BOLA'
+  },
+  {
+    title: 'Na frase “O GATO CORRE”, quem corre?',
+    emoji: '📖',
+    options: ['GATO', 'CASA', 'BOLA'],
+    answer: 'GATO'
+  }
+] as const;
+
+function InitialAssessment({
+  name,
+  onFinish,
+  onBack
+}: {
+  name: string;
+  onFinish: (score: number) => void;
+  onBack: () => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [selected, setSelected] = useState('');
+  const [message, setMessage] = useState('');
+
+  const question = assessmentQuestions[index];
+
+  const choose = (option: string) => {
+    if (selected) return;
+
+    setSelected(option);
+
+    const correct = option === question.answer;
+
+    if (correct) {
+      setScore((current) => current + 1);
+      setMessage('Muito bem! 🌟');
+      speak('Muito bem!');
+    } else {
+      setMessage('Tudo bem! Vamos continuar 😊');
+      speak('Tudo bem. Vamos continuar.');
+    }
+  };
+
+  const next = () => {
+    if (!selected) return;
+
+    if (index === assessmentQuestions.length - 1) {
+      const finalScore =
+        score + (selected === question.answer ? 1 : 0);
+
+      onFinish(finalScore);
+      return;
+    }
+
+    setIndex((current) => current + 1);
+    setSelected('');
+    setMessage('');
+  };
+
+  return (
+    <div className="app" style={{ minHeight: '100vh', padding: '24px' }}>
+      <section
+        style={{
+          width: '100%',
+          maxWidth: '760px',
+          margin: '0 auto'
+        }}
+      >
+        <button className="back" onClick={onBack}>
+          <ArrowLeft />
+          Voltar
+        </button>
+
+        <div className="gameCard" style={{ padding: '28px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '54px' }}>📝✨</div>
+            <h2>Sondagem inicial de {name}</h2>
+            <p className="instruction">
+              Esta atividade gera um indicador pedagógico inicial.
+              O professor pode revisar e alterar o nível depois.
+            </p>
+
+            <p>
+              Questão {index + 1} de {assessmentQuestions.length}
+            </p>
+          </div>
+
+          <div className="picture" style={{ fontSize: '72px' }}>
+            {question.emoji}
+          </div>
+
+          <h3 style={{ textAlign: 'center' }}>
+            {question.title}
+          </h3>
+
+          <div className="answers words">
+            {question.options.map((option) => (
               <button
-                className="module"
-                key={student.id}
-                onClick={() => onSelect(student)}
+                key={option}
+                disabled={Boolean(selected)}
+                onClick={() => choose(option)}
                 style={{
-                  minHeight: '210px',
-                  cursor: 'pointer'
+                  opacity:
+                    selected && selected !== option ? 0.65 : 1
                 }}
               >
-                <span style={{ fontSize: '72px' }}>
-                  {student.avatar}
-                </span>
-
-                <b style={{ fontSize: '25px' }}>
-                  {student.name}
-                </b>
-
-                <small>
-                  Toque aqui para começar 🚀
-                </small>
+                {option}
               </button>
             ))}
           </div>
-        )}
+
+          {message && (
+            <p className="good" style={{ textAlign: 'center' }}>
+              {message}
+            </p>
+          )}
+
+          <div className="row">
+            <button
+              className="primary"
+              disabled={!selected}
+              onClick={next}
+            >
+              {index === assessmentQuestions.length - 1
+                ? 'Ver resultado'
+                : 'Próxima questão →'}
+            </button>
+          </div>
+        </div>
       </section>
     </div>
   );
@@ -600,13 +992,17 @@ function HomePage({
   name,
   avatar,
   progress,
+  learning,
   go
 }: {
   name: string;
   avatar: string;
   progress: Progress;
+  learning: LearningState;
   go: (p: Page) => void;
 }) {
+  const currentLevel = getCurrentLevel(learning);
+
   return (
     <section className="hero">
       <div>
@@ -622,6 +1018,19 @@ function HomePage({
           Letras, sons, palavras e muitos desafios
           divertidos estão esperando por você.
         </p>
+
+        <div
+          className="gameCard"
+          style={{
+            marginTop: '20px',
+            padding: '18px'
+          }}
+        >
+          <b>📚 Nível atual</b>
+          <p style={{ marginBottom: 0 }}>
+            {currentLevel ?? 'Aguardando sondagem'}
+          </p>
+        </div>
 
         <div className="actions">
           <button
@@ -643,29 +1052,23 @@ function HomePage({
 
         <div className="progressCard">
           <b>Seu progresso</b>
-
-          <div className="bar">
-            <i
+          <div className="progressBar">
+            <span
               style={{
-                width: `${pct(
-                  progress.activities,
-                  20
-                )}%`
+                width: `${pct(progress.activities, 30)}%`
               }}
             />
           </div>
-
-          <span>
-            {progress.activities} atividades •{' '}
-            {progress.stars} estrelas
-          </span>
+          <small>
+            {progress.activities} atividades concluídas
+          </small>
         </div>
       </div>
 
       <div className="heroArt">
-        📚
-        <span>🦉</span>
-        <small>ABC</small>
+        <div className="mascot">{avatar}</div>
+        <div className="floating">A B C</div>
+        <div className="floating">⭐ {progress.stars}</div>
       </div>
     </section>
   );
@@ -680,56 +1083,80 @@ function Learn({
 }: {
   go: (p: Page) => void;
 }) {
-  const cards = [
-    [
-      'letters',
-      '🔤',
-      'Letras',
-      'Conheça o alfabeto'
-    ],
-    [
-      'syllables',
-      '🧩',
-      'Sílabas',
-      'Junte sons e pedacinhos'
-    ],
-    [
-      'words',
-      '📖',
-      'Palavras',
-      'Complete e forme palavras'
-    ],
-    [
-      'reading',
-      '👀',
-      'Leitura',
-      'Leia palavras e imagens'
-    ],
-    [
-      'writing',
-      '✍️',
-      'Escrita',
-      'Trace letras e pratique'
-    ]
-  ] as const;
+  const modules: {
+    page: Page;
+    emoji: string;
+    title: string;
+    text: string;
+  }[] = [
+    {
+      page: 'letters',
+      emoji: '🔤',
+      title: 'Letras',
+      text: 'Conheça o alfabeto, os sons e palavras.'
+    },
+    {
+      page: 'syllables',
+      emoji: '🧩',
+      title: 'Sílabas',
+      text: 'Ouça e pratique combinações de letras.'
+    },
+    {
+      page: 'words',
+      emoji: '📝',
+      title: 'Palavras',
+      text: 'Complete palavras usando a letra correta.'
+    },
+    {
+      page: 'reading',
+      emoji: '📚',
+      title: 'Leitura',
+      text: 'Leia palavras e relacione com imagens.'
+    },
+    {
+      page: 'writing',
+      emoji: '✍️',
+      title: 'Escrita',
+      text: 'Pratique a escrita das letras.'
+    }
+  ];
 
   return (
     <section>
-      <h2>O que vamos aprender hoje? 🌟</h2>
+      <h2>📚 O que vamos aprender?</h2>
 
       <div className="grid">
-        {cards.map((c) => (
+        {modules.map((module) => (
           <button
+            key={module.page}
             className="module"
-            onClick={() => go(c[0])}
-            key={c[0]}
+            onClick={() => go(module.page)}
           >
-            <span>{c[1]}</span>
-            <b>{c[2]}</b>
-            <small>{c[3]}</small>
+            <span>{module.emoji}</span>
+            <b>{module.title}</b>
+            <small>{module.text}</small>
           </button>
         ))}
       </div>
+    </section>
+  );
+}
+
+/* ===========================
+   COMPONENTE DE ATIVIDADE
+=========================== */
+
+function Activity({
+  title,
+  children
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h2>{title}</h2>
+      <div className="gameCard">{children}</div>
     </section>
   );
 }
@@ -739,81 +1166,77 @@ function Learn({
 =========================== */
 
 function Letters({
-  complete
+  complete,
+  wrong
 }: {
   complete: (
-    a: string,
-    b?: number,
-    c?: 'letters'
+    label: string,
+    score?: number,
+    kind?: 'letters'
   ) => void;
+  wrong: () => void;
 }) {
-  const [i, setI] = useState(0);
+  const [index, setIndex] = useState(0);
+  const [message, setMessage] = useState('');
 
-  const l = letters[i];
+  const [upper, lower, word, emoji] = letters[index];
+
+  const next = () => {
+    setIndex((current) => (current + 1) % letters.length);
+    setMessage('');
+  };
+
+  const previous = () => {
+    setIndex(
+      (current) =>
+        (current - 1 + letters.length) % letters.length
+    );
+    setMessage('');
+  };
+
+  const check = () => {
+    complete(`Letra ${upper}`, 8, 'letters');
+    setMessage(`Muito bem! ${upper} de ${word} 🎉`);
+    speak(`${upper}. ${word}.`);
+  };
 
   return (
-    <Activity title="🔤 Descobrindo as letras">
-      <div className="letterBig">
-        {l[0]} <small>{l[1]}</small>
+    <Activity title="🔤 Conhecendo as letras">
+      <p className="instruction">
+        Letra {index + 1} de {letters.length}
+      </p>
+
+      <div className="picture">{emoji}</div>
+
+      <div className="trace">
+        {upper} {lower}
       </div>
 
-      <div className="picture">
-        {l[3]}
-      </div>
-
-      <h2>
-        {l[0]} de {l[2]}
-      </h2>
-
-      <button
-        className="audio"
-        onClick={() =>
-          speak(
-            `${l[0]}. ${l[0]} de ${l[2]}`
-          )
-        }
-      >
-        <Volume2 />
-        Ouvir
-      </button>
+      <h3 style={{ textAlign: 'center' }}>{word}</h3>
 
       <div className="row">
         <button
-          className="soft"
-          disabled={i === 0}
-          onClick={() => setI(i - 1)}
+          className="audio"
+          onClick={() => speak(`Letra ${upper}. ${word}`)}
         >
-          Anterior
+          <Volume2 />
+          Ouvir
         </button>
 
-        <button
-          className="primary"
-          onClick={() => {
-            complete(
-              `Letra ${l[0]}`,
-              10,
-              'letters'
-            );
+        <button className="primary" onClick={check}>
+          ⭐ Eu pratiquei
+        </button>
+      </div>
 
-            setI(
-              Math.min(
-                i + 1,
-                letters.length - 1
-              )
-            );
-          }}
-        >
-          Aprendi! ⭐
+      {message && <p className="good">{message}</p>}
+
+      <div className="row">
+        <button className="soft" onClick={previous}>
+          ← Anterior
         </button>
 
-        <button
-          className="soft"
-          disabled={
-            i === letters.length - 1
-          }
-          onClick={() => setI(i + 1)}
-        >
-          Próxima
+        <button className="soft" onClick={next}>
+          Próxima →
         </button>
       </div>
     </Activity>
@@ -825,78 +1248,71 @@ function Letters({
 =========================== */
 
 function Syllables({
-  complete
+  complete,
+  wrong
 }: {
   complete: (
-    a: string,
-    b?: number,
-    c?: 'syllables'
+    label: string,
+    score?: number,
+    kind?: 'syllables'
   ) => void;
+  wrong: () => void;
 }) {
-  const [i, setI] = useState(0);
+  const [index, setIndex] = useState(0);
+  const [message, setMessage] = useState('');
+  const current = syllables[index];
 
-  const s = syllables[i];
+  const next = () => {
+    setIndex((currentIndex) =>
+      (currentIndex + 1) % syllables.length
+    );
+    setMessage('');
+  };
 
   return (
-    <Activity title="🧩 Brincando com sílabas">
-      <div className="syllable">
-        {s}
-      </div>
-
-      <button
-        className="audio"
-        onClick={() => speak(s)}
-      >
-        <Volume2 />
-        Ouvir e repetir
-      </button>
-
+    <Activity title="🧩 Vamos praticar sílabas">
       <p className="instruction">
-        Fale bem devagar e bata uma palma para
-        cada pedacinho.
+        Sílaba {index + 1} de {syllables.length}
       </p>
+
+      <div className="trace">{current}</div>
 
       <div className="row">
         <button
-          className="soft"
-          onClick={() =>
-            setI(
-              (i - 1 + syllables.length) %
-                syllables.length
-            )
-          }
+          className="audio"
+          onClick={() => speak(current)}
         >
-          ←
+          <Volume2 />
+          Ouvir sílaba
         </button>
 
         <button
           className="primary"
           onClick={() => {
-            complete(
-              `Sílaba ${s}`,
-              10,
-              'syllables'
-            );
-
-            setI(
-              (i + 1) %
-                syllables.length
-            );
+            complete(`Sílaba ${current}`, 10, 'syllables');
+            setMessage(`Muito bem! Você praticou ${current} 🌟`);
+            setTimeout(next, 900);
           }}
         >
-          Consegui! 🎉
+          ✅ Consegui repetir
         </button>
+      </div>
 
+      {message && <p className="good">{message}</p>}
+
+      <div className="row">
         <button
           className="soft"
-          onClick={() =>
-            setI(
-              (i + 1) %
-                syllables.length
-            )
-          }
+          onClick={() => {
+            wrong();
+            setMessage('Tudo bem! Ouça novamente e tente repetir 😊');
+          }}
         >
-          →
+          Ainda estou aprendendo
+        </button>
+
+        <button className="soft" onClick={next}>
+          Próxima →
         </button>
       </div>
     </Activity>
@@ -907,49 +1323,53 @@ function Syllables({
    PALAVRAS
 =========================== */
 
+type WordQuestion = {
+  emoji: string;
+  pattern: string;
+  options: readonly string[];
+  answer: string;
+  word: string;
+};
+
 function Quiz({
   title,
   questions,
-  complete
+  complete,
+  wrong
 }: {
   title: string;
-  questions: any[];
+  questions: readonly WordQuestion[];
   complete: () => void;
+  wrong: () => void;
 }) {
-  const [i, setI] = useState(0);
-  const [msg, setMsg] = useState('');
+  const [index, setIndex] = useState(0);
   const [selectedLetter, setSelectedLetter] = useState('');
+  const [message, setMessage] = useState('');
 
-  const q = questions[i];
+  const question = questions[index];
 
   const displayedPattern = selectedLetter
-    ? q.pattern.replace('_', selectedLetter)
-    : q.pattern;
+    ? question.pattern.replace('_', selectedLetter)
+    : question.pattern;
 
-  const choose = (o: string) => {
-    // A letra escolhida aparece imediatamente no espaço vazio.
-    setSelectedLetter(o);
+  const choose = (option: string) => {
+    setSelectedLetter(option);
 
-    if (o === q.answer) {
-      setMsg(
-        `Parabéns! 🎉 Você formou ${q.word}!`
-      );
-
-      speak(q.word);
+    if (option === question.answer) {
+      setMessage(`Parabéns! 🎉 Você formou ${question.word}!`);
+      speak(question.word);
       complete();
 
       setTimeout(() => {
-        setMsg('');
+        setMessage('');
         setSelectedLetter('');
-
-        setI(
-          (current) =>
-            (current + 1) %
-            questions.length
+        setIndex(
+          (current) => (current + 1) % questions.length
         );
-      }, 1200);
+      }, 1100);
     } else {
-      setMsg(
+      wrong();
+      setMessage(
         'Quase! Veja a letra que você colocou e tente novamente 😊'
       );
     }
@@ -958,43 +1378,33 @@ function Quiz({
   return (
     <Activity title={title}>
       <p className="instruction">
-        Palavra {i + 1} de {questions.length}
+        Palavra {index + 1} de {questions.length}
       </p>
 
-      <div className="picture">
-        {q.emoji}
-      </div>
+      <div className="picture">{question.emoji}</div>
 
-      <div className="pattern">
-        {displayedPattern}
-      </div>
-
-      <p className="instruction">
-        Escolha a letra que completa a palavra.
-      </p>
+      <div className="pattern">{displayedPattern}</div>
 
       <div className="answers">
-        {q.options.map(
-          (o: string) => (
-            <button
-              onClick={() => choose(o)}
-              key={o}
-            >
-              {o}
-            </button>
-          )
-        )}
+        {question.options.map((option) => (
+          <button
+            key={option}
+            onClick={() => choose(option)}
+          >
+            {option}
+          </button>
+        ))}
       </div>
 
-      <p
-        className={
-          msg.startsWith('Parabéns')
-            ? 'good'
-            : 'hint'
-        }
-      >
-        {msg}
-      </p>
+      {message && (
+        <p
+          className={
+            message.includes('Parabéns') ? 'good' : 'hint'
+          }
+        >
+          {message}
+        </p>
+      )}
     </Activity>
   );
 }
@@ -1004,140 +1414,92 @@ function Quiz({
 =========================== */
 
 function Reading({
-  complete
+  complete,
+  wrong
 }: {
   complete: () => void;
+  wrong: () => void;
 }) {
-  const [i, setI] =
-    useState(0);
+  const [index, setIndex] = useState(0);
+  const [message, setMessage] = useState('');
 
-  const [msg, setMsg] =
-    useState('');
+  const question = readingQuestions[index];
 
-  const q =
-    readingQuestions[i];
+  const choose = (option: string) => {
+    if (option === question.answer) {
+      setMessage(`Muito bem! É ${question.answer} 🎉`);
+      speak(question.answer);
+      complete();
+
+      setTimeout(() => {
+        setMessage('');
+        setIndex(
+          (current) =>
+            (current + 1) % readingQuestions.length
+        );
+      }, 1000);
+    } else {
+      wrong();
+      setMessage('Quase! Observe a imagem e tente outra palavra 😊');
+    }
+  };
 
   return (
-    <Activity title="📖 Leitura com imagens">
-      <div className="picture">
-        {q.emoji}
-      </div>
-
+    <Activity title="📖 Vamos ler">
       <p className="instruction">
-        Qual palavra combina com a imagem?
+        Questão {index + 1} de {readingQuestions.length}
       </p>
 
+      <div className="picture">{question.emoji}</div>
+
       <div className="answers words">
-        {q.options.map((o) => (
+        {question.options.map((option) => (
           <button
-            key={o}
-            onClick={() => {
-              if (
-                o === q.answer
-              ) {
-                setMsg(
-                  'Muito bem! 🌟'
-                );
-
-                complete();
-
-                setTimeout(
-                  () => {
-                    setI(
-                      (i + 1) %
-                        readingQuestions.length
-                    );
-
-                    setMsg('');
-                  },
-                  700
-                );
-              } else {
-                setMsg(
-                  'Quase! Olhe a imagem e tente de novo 😊'
-                );
-              }
-            }}
+            key={option}
+            onClick={() => choose(option)}
           >
-            {o}
+            {option}
           </button>
         ))}
       </div>
 
-      <button
-        className="audio"
-        onClick={() =>
-          speak(
-            q.options.join(
-              ', '
-            )
-          )
-        }
-      >
-        <Volume2 />
-        Ouvir opções
-      </button>
-
-      <p className="good">
-        {msg}
-      </p>
+      {message && (
+        <p
+          className={
+            message.includes('Muito bem') ? 'good' : 'hint'
+          }
+        >
+          {message}
+        </p>
+      )}
     </Activity>
   );
 }
 
 /* ===========================
    ESCRITA
-   A ATÉ Z
 =========================== */
 
 function Writing({
-  complete
+  complete,
+  wrong
 }: {
   complete: () => void;
+  wrong: () => void;
 }) {
-  const alphabet = [
-    ['A', 'a'],
-    ['B', 'b'],
-    ['C', 'c'],
-    ['D', 'd'],
-    ['E', 'e'],
-    ['F', 'f'],
-    ['G', 'g'],
-    ['H', 'h'],
-    ['I', 'i'],
-    ['J', 'j'],
-    ['K', 'k'],
-    ['L', 'l'],
-    ['M', 'm'],
-    ['N', 'n'],
-    ['O', 'o'],
-    ['P', 'p'],
-    ['Q', 'q'],
-    ['R', 'r'],
-    ['S', 's'],
-    ['T', 't'],
-    ['U', 'u'],
-    ['V', 'v'],
-    ['W', 'w'],
-    ['X', 'x'],
-    ['Y', 'y'],
-    ['Z', 'z']
-  ];
-
-  const [i, setI] = useState(0);
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const [index, setIndex] = useState(0);
   const [message, setMessage] = useState('');
-
   const canvasRef = React.useRef<CanvasHandle>(null);
-
-  const [upper, lower] = alphabet[i];
+  const upper = alphabet[index];
 
   const nextLetter = () => {
-    setI((current) => (current + 1) % alphabet.length);
+    setIndex((current) => (current + 1) % alphabet.length);
     setMessage('');
   };
 
   const previousLetter = () => {
-    setI(
+    setIndex(
       (current) =>
         (current - 1 + alphabet.length) % alphabet.length
     );
@@ -1148,41 +1510,30 @@ function Writing({
     const correct = canvasRef.current?.validate();
 
     if (!correct) {
+      wrong();
       setMessage(
         `😊 Tente novamente! Passe o lápis por cima da letra ${upper}.`
       );
-
       speak(
         `Tente novamente. Faça a letra ${upper} seguindo o modelo.`
       );
-
       return;
     }
 
-    setMessage(
-      `🎉 Muito bem! Você escreveu a letra ${upper}!`
-    );
-
-    speak(
-      `Muito bem! Letra ${upper}.`
-    );
-
+    setMessage(`🎉 Muito bem! Você escreveu a letra ${upper}!`);
+    speak(`Muito bem! Letra ${upper}.`);
     complete();
 
-    setTimeout(() => {
-      nextLetter();
-    }, 1000);
+    setTimeout(nextLetter, 1000);
   };
 
   return (
     <Activity title="✍️ Hora de escrever">
       <p className="instruction">
-        Letra {i + 1} de {alphabet.length}
+        Letra {index + 1} de {alphabet.length}
       </p>
 
-      <div className="trace">
-        {upper} {lower}
-      </div>
+      <div className="trace">{upper}</div>
 
       <button
         className="audio"
@@ -1205,9 +1556,7 @@ function Writing({
       {message && (
         <p
           className={
-            message.includes('Muito bem')
-              ? 'good'
-              : 'hint'
+            message.includes('Muito bem') ? 'good' : 'hint'
           }
         >
           {message}
@@ -1215,24 +1564,15 @@ function Writing({
       )}
 
       <div className="row">
-        <button
-          className="soft"
-          onClick={previousLetter}
-        >
+        <button className="soft" onClick={previousLetter}>
           ← Anterior
         </button>
 
-        <button
-          className="primary"
-          onClick={evaluateWriting}
-        >
+        <button className="primary" onClick={evaluateWriting}>
           ✅ Avaliar escrita
         </button>
 
-        <button
-          className="soft"
-          onClick={nextLetter}
-        >
+        <button className="soft" onClick={nextLetter}>
           Próxima →
         </button>
       </div>
@@ -1241,256 +1581,277 @@ function Writing({
 }
 
 /* ===========================
-   JOGOS
+   JOGOS VARIADOS
 =========================== */
 
+const findLetterPool = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+const combineGames = [
+  {
+    emoji: '🐱',
+    answer: 'GATO',
+    options: ['PATO', 'GATO', 'BOLA']
+  },
+  {
+    emoji: '🐄',
+    answer: 'VACA',
+    options: ['VACA', 'CASA', 'SAPO']
+  },
+  {
+    emoji: '🦆',
+    answer: 'PATO',
+    options: ['MALA', 'PATO', 'RATO']
+  },
+  {
+    emoji: '🐢',
+    answer: 'TATU',
+    options: ['TATU', 'GATO', 'MOTO']
+  },
+  {
+    emoji: '⚽',
+    answer: 'BOLA',
+    options: ['BOTA', 'BOLA', 'BOCA']
+  },
+  {
+    emoji: '🏠',
+    answer: 'CASA',
+    options: ['CASA', 'MALA', 'MAPA']
+  }
+];
+
+const organizeWords = [
+  'CASA',
+  'BOLA',
+  'PATO',
+  'SAPO',
+  'MALA',
+  'GATO',
+  'VACA',
+  'TATU',
+  'RATO',
+  'MAPA'
+];
+
+const shuffle = <T,>(items: readonly T[]) =>
+  [...items].sort(() => Math.random() - 0.5);
+
 function Games({
-  complete
+  complete,
+  wrong
 }: {
   complete: (
-    a: string,
-    b?: number
+    label: string,
+    score?: number,
+    kind?: 'letters' | 'syllables' | 'words'
   ) => void;
+  wrong: () => void;
 }) {
-  const [
-    target,
-    setTarget
-  ] = useState('B');
+  const [target, setTarget] = useState(
+    findLetterPool[Math.floor(Math.random() * findLetterPool.length)]
+  );
+  const [letterOptions, setLetterOptions] = useState<string[]>([]);
+  const [letterMessage, setLetterMessage] = useState('');
 
-  const [
-    msg,
-    setMsg
-  ] = useState('');
+  const [combineIndex, setCombineIndex] = useState(0);
+  const [combineMessage, setCombineMessage] = useState('');
 
-  const [
-    memory,
-    setMemory
-  ] = useState('');
+  const [wordIndex, setWordIndex] = useState(0);
+  const [order, setOrder] = useState<string[]>([]);
+  const [organizeMessage, setOrganizeMessage] = useState('');
 
-  const [
-    order,
-    setOrder
-  ] =
-    useState<string[]>([]);
+  const combine = combineGames[combineIndex];
+  const organizeWord = organizeWords[wordIndex];
 
-  const chars = [
-    'A',
-    'B',
-    'C',
-    'D',
-    'M',
-    'P'
-  ];
+  const refreshLetterGame = (newTarget?: string) => {
+    const chosen =
+      newTarget ??
+      findLetterPool[
+        Math.floor(Math.random() * findLetterPool.length)
+      ];
 
-  const chooseMemory = (
-    v: string
-  ) => {
-    if (v === 'GATO') {
-      setMemory(
-        'Combinação certa! 🐱 = GATO 🎉'
-      );
+    const distractors = shuffle(
+      findLetterPool.filter((letter) => letter !== chosen)
+    ).slice(0, 5);
 
-      complete(
-        'Jogo da memória',
-        12
-      );
+    setTarget(chosen);
+    setLetterOptions(shuffle([chosen, ...distractors]));
+  };
+
+  useEffect(() => {
+    refreshLetterGame(target);
+  }, []);
+
+  const chooseLetter = (letter: string) => {
+    if (letter === target) {
+      setLetterMessage(`Achou a letra ${target}! 🎉`);
+      complete('Jogo: encontre a letra', 10, 'letters');
+
+      setTimeout(() => {
+        setLetterMessage('');
+        refreshLetterGame();
+      }, 900);
     } else {
-      setMemory(
-        'Quase! Procure a palavra do gatinho 😊'
+      wrong();
+      setLetterMessage('Quase! Tente outra letra 😊');
+    }
+  };
+
+  const chooseCombine = (word: string) => {
+    if (word === combine.answer) {
+      setCombineMessage(
+        `Combinação certa! ${combine.emoji} = ${combine.answer} 🎉`
+      );
+
+      speak(combine.answer);
+      complete('Jogo: combine imagem e palavra', 12, 'words');
+
+      setTimeout(() => {
+        setCombineMessage('');
+        setCombineIndex(
+          (current) => (current + 1) % combineGames.length
+        );
+      }, 1000);
+    } else {
+      wrong();
+      setCombineMessage(
+        'Quase! Observe a imagem e tente outra palavra 😊'
       );
     }
   };
 
-  const toggle = (
-    c: string
-  ) =>
-    setOrder((o) =>
-      o.length >= 4
-        ? o
-        : [...o, c]
-    );
+  const addLetter = (letter: string) => {
+    if (order.length >= organizeWord.length) return;
+    setOrder((current) => [...current, letter]);
+  };
+
+  const checkWord = () => {
+    if (order.join('') === organizeWord) {
+      setOrganizeMessage(`${organizeWord} formada! 🌟`);
+      speak(organizeWord);
+      complete('Jogo: organize a palavra', 15, 'words');
+
+      setTimeout(() => {
+        setOrder([]);
+        setOrganizeMessage('');
+        setWordIndex(
+          (current) => (current + 1) % organizeWords.length
+        );
+      }, 1000);
+    } else {
+      wrong();
+      setOrganizeMessage(
+        `Quase! Tente montar ${organizeWord.split('').join('-')} 😊`
+      );
+    }
+  };
+
+  const shuffledLetters = useMemo(
+    () => shuffle(organizeWord.split('')),
+    [organizeWord]
+  );
 
   return (
     <section>
-      <h2>
-        🎮 Jogos educativos
-      </h2>
+      <h2>🎮 Jogos educativos variados</h2>
 
       <div className="gameCard">
-        <h3>
-          Jogo 1 — Encontre a letra
-        </h3>
+        <h3>Jogo 1 — Encontre a letra</h3>
 
         <p>
-          Encontre a letra{' '}
-          <b>{target}</b>
+          Encontre a letra <b>{target}</b>
         </p>
 
+        <button
+          className="audio"
+          onClick={() => speak(`Encontre a letra ${target}`)}
+        >
+          <Volume2 />
+          Ouvir
+        </button>
+
         <div className="answers">
-          {chars.map((c) => (
+          {letterOptions.map((letter) => (
             <button
-              key={c}
-              onClick={() => {
-                if (
-                  c === target
-                ) {
-                  setMsg(
-                    'Achou! 🎉'
-                  );
-
-                  complete(
-                    'Jogo: encontre a letra',
-                    10
-                  );
-
-                  setTarget(
-                    chars[
-                      (
-                        chars.indexOf(
-                          target
-                        ) + 1
-                      ) %
-                        chars.length
-                    ]
-                  );
-                } else {
-                  setMsg(
-                    'Quase! Tente outra 😊'
-                  );
-                }
-              }}
+              key={letter}
+              onClick={() => chooseLetter(letter)}
             >
-              {c}
+              {letter}
             </button>
           ))}
         </div>
 
-        <p className="good">
-          {msg}
-        </p>
+        <p className="good">{letterMessage}</p>
       </div>
 
       <div className="grid mini">
-
         <div className="gameCard">
+          <h3>Jogo 2 — Combine</h3>
 
-          <h3>
-            Jogo 2 — Combine
-          </h3>
-
-          <div className="picture">
-            🐱
-          </div>
+          <div className="picture">{combine.emoji}</div>
 
           <div className="answers words">
-            {[
-              'PATO',
-              'GATO',
-              'BOLA'
-            ].map((v) => (
+            {combine.options.map((word) => (
               <button
-                key={v}
-                onClick={() =>
-                  chooseMemory(
-                    v
-                  )
-                }
+                key={word}
+                onClick={() => chooseCombine(word)}
               >
-                {v}
+                {word}
               </button>
             ))}
           </div>
 
-          <p className="good">
-            {memory}
-          </p>
-
+          <p className="good">{combineMessage}</p>
         </div>
 
         <div className="gameCard">
-
-          <h3>
-            Jogo 3 — Organize
-          </h3>
+          <h3>Jogo 3 — Organize</h3>
 
           <p>
-            Monte a palavra{' '}
-            <b>CASA</b>
+            Monte a palavra <b>{organizeWord}</b>
           </p>
 
           <div className="pattern">
-            {order.join(' ') ||
-              '_ _ _ _'}
+            {order.length
+              ? order.join(' ')
+              : organizeWord
+                  .split('')
+                  .map(() => '_')
+                  .join(' ')}
           </div>
 
           <div className="answers">
-            {[
-              'C',
-              'A',
-              'S',
-              'A'
-            ].map(
-              (
-                c,
-                i
-              ) => (
-                <button
-                  key={i}
-                  onClick={() =>
-                    toggle(c)
-                  }
-                >
-                  {c}
-                </button>
-              )
-            )}
+            {shuffledLetters.map((letter, index) => (
+              <button
+                key={`${letter}-${index}`}
+                onClick={() => addLetter(letter)}
+              >
+                {letter}
+              </button>
+            ))}
           </div>
 
           <div className="row">
-
             <button
               className="soft"
-              onClick={() =>
-                setOrder([])
-              }
+              onClick={() => {
+                setOrder([]);
+                setOrganizeMessage('');
+              }}
             >
               Limpar
             </button>
 
             <button
               className="primary"
-              onClick={() => {
-                if (
-                  order.join(
-                    ''
-                  ) === 'CASA'
-                ) {
-                  complete(
-                    'Jogo: organize a palavra',
-                    15
-                  );
-
-                  setMsg(
-                    'CASA formada! 🌟'
-                  );
-
-                  setOrder([]);
-                } else {
-                  setMsg(
-                    'Quase! Tente montar C-A-S-A 😊'
-                  );
-                }
-              }}
+              onClick={checkWord}
             >
               Conferir
             </button>
-
           </div>
 
+          <p className="good">{organizeMessage}</p>
         </div>
-
       </div>
-
     </section>
   );
 }
@@ -1504,186 +1865,164 @@ function Achievements({
 }: {
   progress: Progress;
 }) {
-  const a = [
-    [
-      'primeira',
-      '🏆',
-      'Primeira palavra',
-      'Concluiu sua primeira atividade'
-    ],
-    [
-      'letras',
-      '🔤',
-      'Mestre das letras',
-      'Aprendeu várias letras'
-    ],
-    [
-      'super',
-      '⭐',
-      'Super estudante',
-      'Completou 10 atividades'
-    ],
-    [
-      'leitor',
-      '📚',
-      'Leitor iniciante',
-      'Continue praticando leitura'
-    ]
+  const achievements = [
+    {
+      emoji: '🌱',
+      title: 'Primeiro passo',
+      unlocked: progress.activities >= 1
+    },
+    {
+      emoji: '⭐',
+      title: 'Super estudante',
+      unlocked: progress.activities >= 10
+    },
+    {
+      emoji: '🔤',
+      title: 'Mestre das letras',
+      unlocked: progress.letters >= 20
+    },
+    {
+      emoji: '📖',
+      title: 'Leitor iniciante',
+      unlocked: progress.words >= 10
+    },
+    {
+      emoji: '🏆',
+      title: 'Campeão das atividades',
+      unlocked: progress.activities >= 25
+    }
   ];
 
   return (
     <section>
-      <h2>
-        🏆 Minhas conquistas
-      </h2>
+      <h2>🏆 Minhas conquistas</h2>
 
       <div className="grid">
-        {a.map(
-          ([
-            id,
-            e,
-            t,
-            d
-          ]) => (
-            <div
-              key={id}
-              className={`achievement ${
-                progress.badges.includes(
-                  id
-                )
-                  ? 'unlocked'
-                  : ''
-              }`}
-            >
-              <span>{e}</span>
-
-              <b>{t}</b>
-
-              <small>
-                {progress.badges.includes(
-                  id
-                )
-                  ? 'Desbloqueada! 🎉'
-                  : d}
-              </small>
-            </div>
-          )
-        )}
+        {achievements.map((achievement) => (
+          <div
+            className="module"
+            key={achievement.title}
+            style={{
+              opacity: achievement.unlocked ? 1 : 0.45
+            }}
+          >
+            <span>{achievement.emoji}</span>
+            <b>{achievement.title}</b>
+            <small>
+              {achievement.unlocked
+                ? 'Conquistado! 🎉'
+                : 'Continue aprendendo para desbloquear.'}
+            </small>
+          </div>
+        ))}
       </div>
     </section>
   );
 }
 
 /* ===========================
-   PERFIL
+   PERFIL DO ALUNO
 =========================== */
 
 function Profile({
   name,
   avatar,
-  setName,
-  setAvatar,
   progress,
+  learning,
   go
 }: {
   name: string;
   avatar: string;
-  setName: (s: string) => void;
-  setAvatar: (s: string) => void;
   progress: Progress;
+  learning: LearningState;
   go: (p: Page) => void;
 }) {
-  const av = [
-    '👧🏻',
-    '👦🏽',
-    '👧🏾',
-    '👦🏻',
-    '🧒🏼',
-    '👧🏽'
-  ];
+  const currentLevel = getCurrentLevel(learning);
 
   return (
     <section>
       <h2>👤 Meu perfil</h2>
 
-      <div className="profileCard">
-
-        <div className="avatar">
-          {avatar}
+      <div className="gameCard">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '82px' }}>{avatar}</div>
+          <h2>{name}</h2>
         </div>
 
-        <input
-          value={name}
-          onChange={(e) => {
-            setName(
-              e.target.value
-            );
-
-            localStorage.setItem(
-              'alfabetizacao-name',
-              e.target.value
-            );
-          }}
-        />
-
-        <div className="avatars">
-          {av.map((a) => (
-            <button
-              key={a}
-              onClick={() => {
-                setAvatar(a);
-
-                localStorage.setItem(
-                  'alfabetizacao-avatar',
-                  a
-                );
-              }}
-            >
-              {a}
-            </button>
-          ))}
+        <div className="grid mini">
+          <Stat
+            icon="📚"
+            label="Nível atual"
+            value={currentLevel ?? 'Pendente'}
+          />
+          <Stat
+            icon="⭐"
+            label="Estrelas"
+            value={String(progress.stars)}
+          />
+          <Stat
+            icon="🎯"
+            label="Atividades"
+            value={String(progress.activities)}
+          />
+          <Stat
+            icon="🏅"
+            label="Pontos"
+            value={String(progress.points)}
+          />
         </div>
 
-        <div className="stats">
+        <div
+          className="gameCard"
+          style={{ marginTop: '20px' }}
+        >
+          <h3>📊 Desempenho</h3>
+          <p>
+            Acertos registrados: <b>{learning.correctAnswers}</b>
+          </p>
+          <p>
+            Tentativas com dificuldade:{' '}
+            <b>{learning.wrongAnswers}</b>
+          </p>
+          <p>
+            Nível sugerido pelo sistema:{' '}
+            <b>{learning.suggestedLevel ?? 'Pendente'}</b>
+          </p>
 
-          <b>
-            {progress.points}
-            <small>
-              {' '}
-              pontos
-            </small>
-          </b>
-
-          <b>
-            {progress.stars}
-            <small>
-              {' '}
-              estrelas
-            </small>
-          </b>
-
-          <b>
-            {progress.activities}
-            <small>
-              {' '}
-              atividades
-            </small>
-          </b>
-
+          {learning.manualLevel && (
+            <p>
+              Nível definido pelo professor:{' '}
+              <b>{learning.manualLevel}</b>
+            </p>
+          )}
         </div>
 
         <button
-          className="secondary"
-          onClick={() =>
-            go('role')
-          }
+          className="soft"
+          onClick={() => go('role')}
         >
-          <ShieldCheck />
-          Trocar perfil
+          🔄 Trocar perfil
         </button>
-
       </div>
     </section>
+  );
+}
+
+function Stat({
+  icon,
+  label,
+  value
+}: {
+  icon: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="module">
+      <span>{icon}</span>
+      <b>{value}</b>
+      <small>{label}</small>
+    </div>
   );
 }
 
@@ -1695,144 +2034,105 @@ function TeacherArea({
   students,
   selectedStudent,
   selectedProgress,
+  selectedLearning,
   onAddStudent,
   onDeleteStudent,
   onViewStudent,
+  onChangeLevel,
   onBack
 }: {
   students: Student[];
   selectedStudent: Student | null;
   selectedProgress: Progress | null;
+  selectedLearning: LearningState | null;
   onAddStudent: (
-    name: string,
-    avatar: string
+    studentName: string,
+    studentAvatar: string
   ) => boolean;
   onDeleteStudent: (id: string) => void;
   onViewStudent: (student: Student) => void;
+  onChangeLevel: (
+    studentId: string,
+    level: Level | null
+  ) => void;
   onBack: () => void;
 }) {
-  const [newName, setNewName] = useState('');
-  const [newAvatar, setNewAvatar] = useState('🧒');
+  const [studentName, setStudentName] = useState('');
+  const [studentAvatar, setStudentAvatar] = useState('🧒');
   const [message, setMessage] = useState('');
 
-  const avatars = [
-    '👧🏻',
-    '👦🏽',
-    '👧🏾',
-    '👦🏻',
-    '🧒🏼',
-    '👧🏽',
-    '👦🏼',
-    '🧒🏾'
-  ];
+  const avatars = ['🧒', '👧', '👦', '🧑', '👩', '👨'];
 
-  const registerStudent = () => {
-    const created = onAddStudent(
-      newName,
-      newAvatar
-    );
+  const add = () => {
+    const ok = onAddStudent(studentName, studentAvatar);
 
-    if (!created) {
-      setMessage(
-        'Digite o nome do aluno.'
-      );
-
+    if (!ok) {
+      setMessage('Digite o nome do aluno.');
       return;
     }
 
-    setNewName('');
-    setNewAvatar('🧒');
-
-    setMessage(
-      'Aluno cadastrado com sucesso! ✅'
-    );
+    setStudentName('');
+    setMessage('Aluno cadastrado com sucesso! ✅');
   };
 
+  const accuracy =
+    selectedLearning && selectedLearning.totalAttempts > 0
+      ? Math.round(
+          (selectedLearning.correctAnswers /
+            selectedLearning.totalAttempts) *
+            100
+        )
+      : 0;
+
+  const currentLevel = selectedLearning
+    ? getCurrentLevel(selectedLearning)
+    : null;
+
   return (
-    <div
-      className="app"
-      style={{
-        minHeight: '100vh',
-        paddingBottom: '40px'
-      }}
-    >
+    <div className="app" style={{ minHeight: '100vh' }}>
       <header>
-        <button
-          className="brand"
-          onClick={onBack}
-        >
+        <button className="brand" onClick={onBack}>
           <span>👩‍🏫</span>
           <b>Área do Professor</b>
         </button>
 
-        <button
-          className="soft"
-          onClick={onBack}
-        >
-          🔄 Trocar perfil
+        <button className="soft" onClick={onBack}>
+          Trocar perfil
         </button>
       </header>
 
       <main>
-        <button
-          className="back"
-          onClick={onBack}
-        >
-          <ArrowLeft />
-          Voltar
-        </button>
-
         <section>
-          <h2>
-            👩‍🏫 Turma e acompanhamento
-          </h2>
+          <h2>👩‍🏫 Painel pedagógico</h2>
 
           <div className="gameCard">
-            <h3>
-              ➕ Cadastrar novo aluno
-            </h3>
-
-            <p className="instruction">
-              O aluno cadastrado aparecerá na tela
-              “Entrar como Aluno”.
-            </p>
+            <h3>➕ Cadastrar aluno</h3>
 
             <input
-              value={newName}
-              onChange={(e) =>
-                setNewName(e.target.value)
+              value={studentName}
+              onChange={(event) =>
+                setStudentName(event.target.value)
               }
               placeholder="Nome do aluno"
               style={{
                 width: '100%',
-                maxWidth: '420px',
-                padding: '14px 16px',
+                padding: '14px',
                 borderRadius: '14px',
-                border: '2px solid #ddd',
-                fontSize: '17px',
-                marginBottom: '16px'
+                border: '1px solid #ddd',
+                fontSize: '16px',
+                marginBottom: '14px'
               }}
             />
 
-            <p>
-              <b>Escolha um avatar:</b>
-            </p>
-
-            <div className="avatars">
+            <div className="answers">
               {avatars.map((item) => (
                 <button
                   key={item}
-                  onClick={() =>
-                    setNewAvatar(item)
-                  }
+                  onClick={() => setStudentAvatar(item)}
                   style={{
                     transform:
-                      newAvatar === item
-                        ? 'scale(1.15)'
-                        : 'scale(1)',
-                    outline:
-                      newAvatar === item
-                        ? '3px solid #7c3aed'
+                      studentAvatar === item
+                        ? 'scale(1.12)'
                         : 'none'
                   }}
                 >
@@ -1841,339 +2141,287 @@ function TeacherArea({
               ))}
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                gap: '12px',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                marginTop: '18px'
-              }}
-            >
-              <button
-                className="primary"
-                onClick={registerStudent}
-              >
-                ➕ Cadastrar aluno
-              </button>
+            <button className="primary" onClick={add}>
+              Cadastrar aluno
+            </button>
 
-              {message && (
-                <span className="good">
-                  {message}
-                </span>
-              )}
-            </div>
+            {message && <p className="good">{message}</p>}
           </div>
 
-          <div className="gameCard">
-            <h3>
-              🎒 Alunos cadastrados ({students.length})
-            </h3>
+          <div className="grid" style={{ marginTop: '24px' }}>
+            {students.map((student) => {
+              const learning = loadLearningState(student.id);
+              const level = getCurrentLevel(learning);
 
-            {students.length === 0 ? (
+              return (
+                <div className="module" key={student.id}>
+                  <span style={{ fontSize: '54px' }}>
+                    {student.avatar}
+                  </span>
+
+                  <b>{student.name}</b>
+
+                  <small>
+                    {learning.assessmentCompleted
+                      ? `Nível: ${level}`
+                      : 'Sondagem pendente'}
+                  </small>
+
+                  <button
+                    className="primary"
+                    onClick={() => onViewStudent(student)}
+                  >
+                    <BarChart3 size={18} />
+                    Ver progresso
+                  </button>
+
+                  <button
+                    className="soft"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Excluir o aluno ${student.name}?`
+                        )
+                      ) {
+                        onDeleteStudent(student.id);
+                      }
+                    }}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {students.length === 0 && (
+            <div
+              className="gameCard"
+              style={{
+                marginTop: '24px',
+                textAlign: 'center'
+              }}
+            >
               <p>
                 Nenhum aluno cadastrado ainda.
               </p>
-            ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gap: '12px'
-                }}
-              >
-                {students.map((student) => {
-                  const studentProgress =
-                    loadStudentProgress(
-                      student.id
-                    );
-
-                  return (
-                    <div
-                      key={student.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent:
-                          'space-between',
-                        gap: '16px',
-                        flexWrap: 'wrap',
-                        padding: '16px',
-                        borderRadius: '16px',
-                        background:
-                          'rgba(255,255,255,.7)'
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px'
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '42px'
-                          }}
-                        >
-                          {student.avatar}
-                        </span>
-
-                        <div>
-                          <b
-                            style={{
-                              fontSize: '18px'
-                            }}
-                          >
-                            {student.name}
-                          </b>
-
-                          <div>
-                            <small>
-                              {
-                                studentProgress.activities
-                              }{' '}
-                              atividades •{' '}
-                              {
-                                studentProgress.points
-                              }{' '}
-                              pontos •{' '}
-                              {
-                                studentProgress.stars
-                              }{' '}
-                              estrelas
-                            </small>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: '8px',
-                          flexWrap: 'wrap'
-                        }}
-                      >
-                        <button
-                          className="secondary"
-                          onClick={() =>
-                            onViewStudent(
-                              student
-                            )
-                          }
-                        >
-                          📊 Acompanhar
-                        </button>
-
-                        <button
-                          className="soft"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Excluir o aluno ${student.name}?`
-                              )
-                            ) {
-                              onDeleteStudent(
-                                student.id
-                              );
-                            }
-                          }}
-                        >
-                          🗑️ Excluir
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {selectedStudent &&
-            selectedProgress && (
-              <>
-                <div className="gameCard">
-                  <h3>
-                    📊 Acompanhamento de{' '}
-                    {selectedStudent.name}{' '}
-                    {selectedStudent.avatar}
-                  </h3>
+            selectedProgress &&
+            selectedLearning && (
+              <div
+                className="gameCard"
+                style={{ marginTop: '28px' }}
+              >
+                <h2>
+                  {selectedStudent.avatar}{' '}
+                  {selectedStudent.name}
+                </h2>
 
-                  <div className="adultGrid">
-                    <Metric
-                      t="Progresso geral"
-                      v={`${pct(
-                        selectedProgress.activities,
-                        20
-                      )}%`}
-                    />
-
-                    <Metric
-                      t="Atividades"
-                      v={String(
-                        selectedProgress.activities
-                      )}
-                    />
-
-                    <Metric
-                      t="Pontuação"
-                      v={String(
-                        selectedProgress.points
-                      )}
-                    />
-
-                    <Metric
-                      t="Estrelas"
-                      v={String(
-                        selectedProgress.stars
-                      )}
-                    />
-                  </div>
+                <div className="grid mini">
+                  <Stat
+                    icon="📚"
+                    label="Nível atual"
+                    value={
+                      currentLevel ??
+                      'Sondagem pendente'
+                    }
+                  />
+                  <Stat
+                    icon="🎯"
+                    label="Atividades"
+                    value={String(
+                      selectedProgress.activities
+                    )}
+                  />
+                  <Stat
+                    icon="⭐"
+                    label="Pontos"
+                    value={String(
+                      selectedProgress.points
+                    )}
+                  />
+                  <Stat
+                    icon="✅"
+                    label="Taxa de acerto"
+                    value={`${accuracy}%`}
+                  />
                 </div>
 
-                <div className="gameCard">
+                <div
+                  className="gameCard"
+                  style={{ marginTop: '20px' }}
+                >
                   <h3>
-                    Habilidades trabalhadas
+                    <ClipboardCheck size={20} /> Indicadores
+                    pedagógicos
                   </h3>
 
-                  {[
-                    [
-                      'Letras',
-                      selectedProgress.letters,
-                      26
-                    ],
-                    [
-                      'Sílabas',
-                      selectedProgress.syllables,
-                      20
-                    ],
-                    [
-                      'Palavras e leitura',
-                      selectedProgress.words,
-                      20
-                    ]
-                  ].map(
-                    ([
-                      label,
-                      value,
-                      max
-                    ]: any) => (
-                      <div
-                        className="skill"
-                        key={label}
-                      >
-                        <span>
-                          {label}
-                        </span>
+                  <p>
+                    Sondagem inicial:{' '}
+                    <b>
+                      {selectedLearning.assessmentCompleted
+                        ? `${selectedLearning.assessmentScore}/6`
+                        : 'Não realizada'}
+                    </b>
+                  </p>
 
-                        <div className="bar">
-                          <i
-                            style={{
-                              width: `${pct(
-                                value,
-                                max
-                              )}%`
-                            }}
-                          />
-                        </div>
+                  <p>
+                    Nível inicial:{' '}
+                    <b>
+                      {selectedLearning.initialLevel ??
+                        'Pendente'}
+                    </b>
+                  </p>
 
-                        <b>
-                          {pct(
-                            value,
-                            max
-                          )}
-                          %
-                        </b>
-                      </div>
-                    )
-                  )}
+                  <p>
+                    Nível sugerido pelo sistema:{' '}
+                    <b>
+                      {selectedLearning.suggestedLevel ??
+                        'Pendente'}
+                    </b>
+                  </p>
+
+                  <p>
+                    Acertos:{' '}
+                    <b>
+                      {selectedLearning.correctAnswers}
+                    </b>{' '}
+                    • Dificuldades:{' '}
+                    <b>
+                      {selectedLearning.wrongAnswers}
+                    </b>
+                  </p>
+
+                  <p className="instruction">
+                    O nível apresentado pelo sistema é um
+                    indicador automático baseado na sondagem e
+                    no desempenho nas atividades. A decisão
+                    pedagógica final continua sendo do professor.
+                  </p>
                 </div>
 
-                <div className="gameCard">
+                <div
+                  className="gameCard"
+                  style={{ marginTop: '20px' }}
+                >
                   <h3>
-                    Histórico recente
+                    <Pencil size={20} /> Editar nível do aluno
                   </h3>
 
-                  {selectedProgress.history
-                    .length ? (
-                    selectedProgress.history
-                      .slice(0, 10)
-                      .map((item) => (
-                        <div
-                          className="history"
-                          key={`${item.at}-${item.label}`}
-                        >
-                          <span>
-                            {new Date(
-                              item.at
-                            ).toLocaleDateString(
-                              'pt-BR'
-                            )}
-                          </span>
+                  <p>
+                    Se você discordar da sugestão automática,
+                    selecione manualmente o nível que considera
+                    adequado.
+                  </p>
 
-                          <b>
-                            {item.label}
-                          </b>
+                  <select
+                    value={
+                      selectedLearning.manualLevel ??
+                      'automatico'
+                    }
+                    onChange={(event) => {
+                      const value = event.target.value;
 
-                          <em>
-                            +{item.score} pts
-                          </em>
-                        </div>
-                      ))
-                  ) : (
-                    <p>
-                      Esse aluno ainda não
-                      realizou atividades.
+                      onChangeLevel(
+                        selectedStudent.id,
+                        value === 'automatico'
+                          ? null
+                          : (value as Level)
+                      );
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      borderRadius: '14px',
+                      border: '1px solid #ddd',
+                      fontSize: '16px'
+                    }}
+                  >
+                    <option value="automatico">
+                      Usar nível sugerido automaticamente
+                    </option>
+
+                    {LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+
+                  {selectedLearning.manualLevel && (
+                    <p className="good">
+                      Nível definido manualmente pelo professor:
+                      {' '}
+                      <b>
+                        {selectedLearning.manualLevel}
+                      </b>
                     </p>
                   )}
 
-                  <p className="note">
-                    Indicadores de apoio
-                    pedagógico: não substituem
-                    a observação e avaliação do
-                    professor.
-                  </p>
+                  {!selectedLearning.manualLevel &&
+                    selectedLearning.assessmentCompleted && (
+                      <p className="good">
+                        O sistema está atualizando o nível
+                        automaticamente conforme o desempenho.
+                      </p>
+                    )}
                 </div>
-              </>
+
+                <div
+                  className="gameCard"
+                  style={{ marginTop: '20px' }}
+                >
+                  <h3>📈 Progresso por habilidade</h3>
+
+                  <p>
+                    Letras: {selectedProgress.letters}/26
+                  </p>
+                  <div className="progressBar">
+                    <span
+                      style={{
+                        width: `${pct(
+                          selectedProgress.letters,
+                          26
+                        )}%`
+                      }}
+                    />
+                  </div>
+
+                  <p>
+                    Sílabas: {selectedProgress.syllables}/75
+                  </p>
+                  <div className="progressBar">
+                    <span
+                      style={{
+                        width: `${pct(
+                          selectedProgress.syllables,
+                          75
+                        )}%`
+                      }}
+                    />
+                  </div>
+
+                  <p>
+                    Palavras: {selectedProgress.words}/25
+                  </p>
+                  <div className="progressBar">
+                    <span
+                      style={{
+                        width: `${pct(
+                          selectedProgress.words,
+                          25
+                        )}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
             )}
         </section>
       </main>
     </div>
-  );
-}
-
-/* ===========================
-   COMPONENTES AUXILIARES
-=========================== */
-
-function Metric({
-  t,
-  v
-}: {
-  t: string;
-  v: string;
-}) {
-  return (
-    <div className="metric">
-      <small>{t}</small>
-      <b>{v}</b>
-    </div>
-  );
-}
-
-function Activity({
-  title,
-  children
-}: {
-  title: string;
-  children: any;
-}) {
-  return (
-    <section className="activity">
-      <h2>{title}</h2>
-
-      <div className="activityBox">
-        {children}
-      </div>
-    </section>
   );
 }
