@@ -445,6 +445,23 @@ export default function App() {
     setPage('home');
   };
 
+  const speakCurrentPage = () => {
+    const messages: Partial<Record<Page, string>> = {
+      home: `Olá, ${name}! Vamos aprender brincando? Você pode escolher começar a aprender ou continuar nos jogos.`,
+      learn: 'Escolha uma atividade. Você pode aprender letras, sílabas, palavras, leitura ou escrita.',
+      letters: 'Nesta atividade, observe a letra, escute o som e veja uma palavra que começa com ela.',
+      syllables: 'Nesta atividade, escute a sílaba e tente repetir em voz alta.',
+      words: 'Olhe a imagem e escolha a letra que completa a palavra.',
+      reading: 'Olhe a imagem e escolha a palavra correta.',
+      writing: 'Passe o dedo ou o mouse por cima da letra e depois aperte em avaliar escrita.',
+      games: 'Escolha um dos jogos. Você pode encontrar letras, combinar imagens com palavras ou organizar uma palavra.',
+      achievements: 'Aqui estão suas conquistas e recompensas pelas atividades concluídas.',
+      profile: `Este é o seu perfil, ${name}. Aqui você pode ver suas estrelas, pontos e atividades concluídas.`
+    };
+
+    speak(messages[page] ?? 'Vamos aprender juntos!');
+  };
+
   if (page === 'role') {
     return (
       <RoleSelection
@@ -527,11 +544,29 @@ export default function App() {
           <b>Alfabetização Infantil Interativa</b>
         </button>
 
-        <div className="score">
-          <Star size={18} />
-          {progress.stars}
-          <b>⭐</b>
-          <span>{progress.points} pts</span>
+        <div
+          style={{
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}
+        >
+          <button
+            className="audio"
+            onClick={speakCurrentPage}
+            title="Ouvir instruções desta tela"
+          >
+            <Volume2 size={18} />
+            Ouvir tela
+          </button>
+
+          <div className="score">
+            <Star size={18} />
+            {progress.stars}
+            <b>⭐</b>
+            <span>{progress.points} pts</span>
+          </div>
         </div>
       </header>
 
@@ -676,6 +711,19 @@ function RoleSelection({
           Escolha como você deseja entrar.
         </p>
 
+        <button
+          className="audio"
+          onClick={() =>
+            speak(
+              'Bem-vindo ao Alfabetização Infantil Interativa. Se você é aluno, aperte em Entrar como Aluno. Se você é professor, aperte em Entrar como Professor.'
+            )
+          }
+          style={{ margin: '10px auto 0' }}
+        >
+          <Volume2 />
+          Ouvir instruções
+        </button>
+
         <div
           style={{
             display: 'grid',
@@ -759,6 +807,21 @@ function StudentSelection({
           <p className="instruction">
             Escolha o seu nome para entrar no seu perfil.
           </p>
+
+          <button
+            className="audio"
+            onClick={() =>
+              speak(
+                students.length === 0
+                  ? 'Ainda não há alunos cadastrados. Peça para o professor cadastrar um aluno primeiro.'
+                  : 'Escolha o seu nome ou o seu desenho para entrar e começar a aprender.'
+              )
+            }
+            style={{ margin: '10px auto 0' }}
+          >
+            <Volume2 />
+            Ouvir instruções
+          </button>
         </div>
 
         {students.length === 0 ? (
@@ -777,39 +840,44 @@ function StudentSelection({
               Peça para a professora cadastrar um aluno
               antes de entrar.
             </p>
+
+            <button
+              className="audio"
+              onClick={() =>
+                speak(
+                  'Nenhum aluno foi cadastrado ainda. Peça para o professor cadastrar seu perfil.'
+                )
+              }
+            >
+              <Volume2 />
+              Ouvir
+            </button>
           </div>
         ) : (
           <div className="grid" style={{ marginTop: '32px' }}>
-            {students.map((student) => {
-              const learning = loadLearningState(student.id);
-              const level = getCurrentLevel(learning);
+            {students.map((student) => (
+              <button
+                className="module"
+                key={student.id}
+                onClick={() => onSelect(student)}
+                style={{
+                  minHeight: '220px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span style={{ fontSize: '72px' }}>
+                  {student.avatar}
+                </span>
 
-              return (
-                <button
-                  className="module"
-                  key={student.id}
-                  onClick={() => onSelect(student)}
-                  style={{
-                    minHeight: '220px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <span style={{ fontSize: '72px' }}>
-                    {student.avatar}
-                  </span>
+                <b style={{ fontSize: '25px' }}>
+                  {student.name}
+                </b>
 
-                  <b style={{ fontSize: '25px' }}>
-                    {student.name}
-                  </b>
-
-                  <small>
-                    {learning.assessmentCompleted
-                      ? `Nível atual: ${level}`
-                      : 'Sondagem inicial pendente'}
-                  </small>
-                </button>
-              );
-            })}
+                <small>
+                  Toque aqui para entrar
+                </small>
+              </button>
+            ))}
           </div>
         )}
       </section>
@@ -928,9 +996,22 @@ function InitialAssessment({
             <div style={{ fontSize: '54px' }}>📝✨</div>
             <h2>Sondagem inicial de {name}</h2>
             <p className="instruction">
-              Esta atividade gera um indicador pedagógico inicial.
-              O professor pode revisar e alterar o nível depois.
+              Vamos fazer algumas atividades rápidas antes de começar.
+              Não se preocupe em acertar tudo. Apenas faça o seu melhor!
             </p>
+
+            <button
+              className="audio"
+              onClick={() =>
+                speak(
+                  `Olá, ${name}. Vamos fazer algumas atividades rápidas antes de começar. Não se preocupe em acertar tudo. Faça o seu melhor.`
+                )
+              }
+              style={{ margin: '8px auto 14px' }}
+            >
+              <Volume2 />
+              Ouvir explicação
+            </button>
 
             <p>
               Questão {index + 1} de {assessmentQuestions.length}
@@ -944,6 +1025,25 @@ function InitialAssessment({
           <h3 style={{ textAlign: 'center' }}>
             {question.title}
           </h3>
+
+          <div className="row">
+            <button
+              className="audio"
+              onClick={() => {
+                speak(question.title);
+                setTimeout(
+                  () =>
+                    speak(
+                      `Opções: ${question.options.join(', ')}`
+                    ),
+                  1200
+                );
+              }}
+            >
+              <Volume2 />
+              Ouvir pergunta e opções
+            </button>
+          </div>
 
           <div className="answers words">
             {question.options.map((option) => (
@@ -1001,7 +1101,7 @@ function HomePage({
   learning: LearningState;
   go: (p: Page) => void;
 }) {
-  const currentLevel = getCurrentLevel(learning);
+  void learning;
 
   return (
     <section className="hero">
@@ -1019,18 +1119,18 @@ function HomePage({
           divertidos estão esperando por você.
         </p>
 
-        <div
-          className="gameCard"
-          style={{
-            marginTop: '20px',
-            padding: '18px'
-          }}
+        <button
+          className="audio"
+          onClick={() =>
+            speak(
+              `Olá, ${name}! Vamos aprender brincando? Você pode apertar em começar a aprender para escolher uma atividade, ou continuar aprendendo para brincar com os jogos.`
+            )
+          }
+          style={{ marginTop: '12px' }}
         >
-          <b>📚 Nível atual</b>
-          <p style={{ marginBottom: 0 }}>
-            {currentLevel ?? 'Aguardando sondagem'}
-          </p>
-        </div>
+          <Volume2 />
+          Ouvir esta tela
+        </button>
 
         <div className="actions">
           <button
@@ -1124,6 +1224,19 @@ function Learn({
   return (
     <section>
       <h2>📚 O que vamos aprender?</h2>
+
+      <button
+        className="audio"
+        onClick={() =>
+          speak(
+            'Escolha uma atividade. Letras para conhecer o alfabeto. Sílabas para juntar sons. Palavras para completar palavras. Leitura para escolher palavras. Escrita para praticar as letras.'
+          )
+        }
+        style={{ marginBottom: '18px' }}
+      >
+        <Volume2 />
+        Ouvir opções
+      </button>
 
       <div className="grid">
         {modules.map((module) => (
@@ -1754,6 +1867,19 @@ function Games({
     <section>
       <h2>🎮 Jogos educativos variados</h2>
 
+      <button
+        className="audio"
+        onClick={() =>
+          speak(
+            'Aqui você pode brincar com três jogos. No primeiro, encontre a letra pedida. No segundo, combine a imagem com a palavra. No terceiro, organize as letras para formar a palavra.'
+          )
+        }
+        style={{ marginBottom: '18px' }}
+      >
+        <Volume2 />
+        Ouvir como jogar
+      </button>
+
       <div className="gameCard">
         <h3>Jogo 1 — Encontre a letra</h3>
 
@@ -1897,6 +2023,19 @@ function Achievements({
     <section>
       <h2>🏆 Minhas conquistas</h2>
 
+      <button
+        className="audio"
+        onClick={() =>
+          speak(
+            'Aqui estão suas conquistas. Continue fazendo atividades para ganhar novas recompensas.'
+          )
+        }
+        style={{ marginBottom: '18px' }}
+      >
+        <Volume2 />
+        Ouvir
+      </button>
+
       <div className="grid">
         {achievements.map((achievement) => (
           <div
@@ -1937,7 +2076,7 @@ function Profile({
   learning: LearningState;
   go: (p: Page) => void;
 }) {
-  const currentLevel = getCurrentLevel(learning);
+  void learning;
 
   return (
     <section>
@@ -1947,14 +2086,21 @@ function Profile({
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '82px' }}>{avatar}</div>
           <h2>{name}</h2>
+
+          <button
+            className="audio"
+            onClick={() =>
+              speak(
+                `Este é o seu perfil, ${name}. Você tem ${progress.stars} estrelas, concluiu ${progress.activities} atividades e ganhou ${progress.points} pontos. Continue aprendendo!`
+              )
+            }
+          >
+            <Volume2 />
+            Ouvir meu progresso
+          </button>
         </div>
 
-        <div className="grid mini">
-          <Stat
-            icon="📚"
-            label="Nível atual"
-            value={currentLevel ?? 'Pendente'}
-          />
+        <div className="grid mini" style={{ marginTop: '20px' }}>
           <Stat
             icon="⭐"
             label="Estrelas"
@@ -1976,25 +2122,23 @@ function Profile({
           className="gameCard"
           style={{ marginTop: '20px' }}
         >
-          <h3>📊 Desempenho</h3>
+          <h3>🌟 Continue aprendendo!</h3>
           <p>
-            Acertos registrados: <b>{learning.correctAnswers}</b>
-          </p>
-          <p>
-            Tentativas com dificuldade:{' '}
-            <b>{learning.wrongAnswers}</b>
-          </p>
-          <p>
-            Nível sugerido pelo sistema:{' '}
-            <b>{learning.suggestedLevel ?? 'Pendente'}</b>
+            Cada atividade concluída ajuda você a praticar
+            letras, sílabas, palavras, leitura e escrita.
           </p>
 
-          {learning.manualLevel && (
-            <p>
-              Nível definido pelo professor:{' '}
-              <b>{learning.manualLevel}</b>
-            </p>
-          )}
+          <button
+            className="audio"
+            onClick={() =>
+              speak(
+                'Cada atividade concluída ajuda você a praticar letras, sílabas, palavras, leitura e escrita. Continue aprendendo!'
+              )
+            }
+          >
+            <Volume2 />
+            Ouvir mensagem
+          </button>
         </div>
 
         <button
