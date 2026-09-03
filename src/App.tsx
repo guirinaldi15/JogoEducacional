@@ -70,6 +70,12 @@ type Student = {
   createdAt: string;
 };
 
+type LevelHistoryEntry = {
+  level: Level;
+  at: string;
+  source: 'sondagem' | 'sistema' | 'professor';
+};
+
 type LearningState = {
   assessmentCompleted: boolean;
   assessmentScore: number;
@@ -80,6 +86,7 @@ type LearningState = {
   wrongAnswers: number;
   totalAttempts: number;
   updatedAt: string | null;
+  levelHistory: LevelHistoryEntry[];
 };
 
 const STUDENTS_KEY = 'alfabetizacao-students';
@@ -96,7 +103,8 @@ const initialLearningState: LearningState = {
   correctAnswers: 0,
   wrongAnswers: 0,
   totalAttempts: 0,
-  updatedAt: null
+  updatedAt: null,
+  levelHistory: []
 };
 
 const studentProgressKey = (id: string) =>
@@ -126,9 +134,19 @@ const loadStudentProgress = (id: string): Progress => {
 const loadLearningState = (id: string): LearningState => {
   try {
     const saved = localStorage.getItem(studentLearningKey(id));
-    return saved
-      ? { ...initialLearningState, ...JSON.parse(saved) }
-      : { ...initialLearningState };
+    if (!saved) {
+      return { ...initialLearningState, levelHistory: [] };
+    }
+
+    const parsed = JSON.parse(saved);
+
+    return {
+      ...initialLearningState,
+      ...parsed,
+      levelHistory: Array.isArray(parsed.levelHistory)
+        ? parsed.levelHistory
+        : []
+    };
   } catch {
     return { ...initialLearningState };
   }
@@ -226,6 +244,28 @@ const calculateSuggestedLevel = (
 const getCurrentLevel = (state: LearningState): Level | null =>
   state.manualLevel ?? state.suggestedLevel ?? state.initialLevel;
 
+
+const addLevelHistory = (
+  history: LevelHistoryEntry[],
+  level: Level,
+  source: LevelHistoryEntry['source']
+): LevelHistoryEntry[] => {
+  const last = history[history.length - 1];
+
+  if (last?.level === level && last?.source === source) {
+    return history;
+  }
+
+  return [
+    ...history,
+    {
+      level,
+      source,
+      at: new Date().toISOString()
+    }
+  ].slice(-40);
+};
+
 export default function App() {
   const [page, setPage] = useState<Page>('role');
 
@@ -274,7 +314,15 @@ export default function App() {
       const next = {
         ...current,
         suggestedLevel: suggested,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        levelHistory:
+          suggested
+            ? addLevelHistory(
+                current.levelHistory ?? [],
+                suggested,
+                'sistema'
+              )
+            : current.levelHistory ?? []
       };
 
       saveLearningState(activeStudentId, next);
@@ -355,7 +403,15 @@ export default function App() {
     const next = {
       ...current,
       manualLevel: level,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      levelHistory:
+        level
+          ? addLevelHistory(
+              current.levelHistory ?? [],
+              level,
+              'professor'
+            )
+          : current.levelHistory ?? []
     };
 
     saveLearningState(studentId, next);
@@ -381,8 +437,21 @@ export default function App() {
         updatedAt: new Date().toISOString()
       };
 
-      next.suggestedLevel =
+      const suggested =
         calculateSuggestedLevel(next, progress);
+
+      if (
+        suggested &&
+        suggested !== current.suggestedLevel
+      ) {
+        next.levelHistory = addLevelHistory(
+          next.levelHistory ?? [],
+          suggested,
+          'sistema'
+        );
+      }
+
+      next.suggestedLevel = suggested;
 
       saveLearningState(activeStudentId, next);
       return next;
@@ -437,7 +506,12 @@ export default function App() {
       initialLevel,
       suggestedLevel: initialLevel,
       manualLevel: null,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      levelHistory: addLevelHistory(
+        learning.levelHistory ?? [],
+        initialLevel,
+        'sondagem'
+      )
     };
 
     setLearning(next);
@@ -534,7 +608,10 @@ export default function App() {
   ] as const;
 
   return (
-    <div className="app">
+    <div
+      className="app student-area"
+      style={{ textTransform: 'uppercase' }}
+    >
       <header>
         <button
           className="brand"
@@ -591,7 +668,12 @@ export default function App() {
           />
         )}
 
-        {page === 'learn' && <Learn go={setPage} />}
+        {page === 'learn' && (
+          <Learn
+            go={setPage}
+            learning={learning}
+          />
+        )}
 
         {page === 'letters' && (
           <Letters
@@ -693,7 +775,8 @@ function RoleSelection({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px'
+        padding: '24px',
+        textTransform: 'uppercase'
       }}
     >
       <section
@@ -788,7 +871,14 @@ function StudentSelection({
   onBack: () => void;
 }) {
   return (
-    <div className="app" style={{ minHeight: '100vh', padding: '24px' }}>
+    <div
+      className="app student-area"
+      style={{
+        minHeight: '100vh',
+        padding: '24px',
+        textTransform: 'uppercase'
+      }}
+    >
       <section
         style={{
           width: '100%',
@@ -944,6 +1034,16 @@ function InitialAssessment({
 
   const question = assessmentQuestions[index];
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(
+        `${question.title}. Opções: ${question.options.join(', ')}`
+      );
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [index]);
+
   const choose = (option: string) => {
     if (selected) return;
 
@@ -965,10 +1065,7 @@ function InitialAssessment({
     if (!selected) return;
 
     if (index === assessmentQuestions.length - 1) {
-      const finalScore =
-        score + (selected === question.answer ? 1 : 0);
-
-      onFinish(finalScore);
+      onFinish(score);
       return;
     }
 
@@ -978,7 +1075,14 @@ function InitialAssessment({
   };
 
   return (
-    <div className="app" style={{ minHeight: '100vh', padding: '24px' }}>
+    <div
+      className="app student-area"
+      style={{
+        minHeight: '100vh',
+        padding: '24px',
+        textTransform: 'uppercase'
+      }}
+    >
       <section
         style={{
           width: '100%',
@@ -1179,11 +1283,15 @@ function HomePage({
 =========================== */
 
 function Learn({
-  go
+  go,
+  learning
 }: {
   go: (p: Page) => void;
+  learning: LearningState;
 }) {
-  const modules: {
+  const currentLevel = getCurrentLevel(learning);
+
+  const allModules: {
     page: Page;
     emoji: string;
     title: string;
@@ -1192,62 +1300,101 @@ function Learn({
     {
       page: 'letters',
       emoji: '🔤',
-      title: 'Letras',
-      text: 'Conheça o alfabeto, os sons e palavras.'
+      title: 'LETRAS',
+      text: 'CONHEÇA AS LETRAS E SEUS SONS.'
     },
     {
       page: 'syllables',
       emoji: '🧩',
-      title: 'Sílabas',
-      text: 'Ouça e pratique combinações de letras.'
+      title: 'SÍLABAS',
+      text: 'JUNTE LETRAS E PRATIQUE OS SONS.'
     },
     {
       page: 'words',
       emoji: '📝',
-      title: 'Palavras',
-      text: 'Complete palavras usando a letra correta.'
+      title: 'PALAVRAS',
+      text: 'COMPLETE PALAVRAS COM A LETRA CERTA.'
     },
     {
       page: 'reading',
       emoji: '📚',
-      title: 'Leitura',
-      text: 'Leia palavras e relacione com imagens.'
+      title: 'LEITURA',
+      text: 'ESCOLHA A PALAVRA QUE COMBINA COM A IMAGEM.'
     },
     {
       page: 'writing',
       emoji: '✍️',
-      title: 'Escrita',
-      text: 'Pratique a escrita das letras.'
+      title: 'ESCRITA',
+      text: 'PRATIQUE A ESCRITA DAS LETRAS.'
     }
   ];
 
+  const recommendedByLevel: Record<Level, Page[]> = {
+    'Garatuja': ['letters', 'writing'],
+    'Pré-silábico': ['letters', 'writing', 'words'],
+    'Silábico sem valor': ['letters', 'syllables', 'writing'],
+    'Silábico com valor': ['syllables', 'words', 'writing'],
+    'Silábico-Alfabético': ['words', 'reading', 'writing'],
+    'Alfabético': ['reading', 'words', 'writing']
+  };
+
+  const recommendedPages =
+    currentLevel
+      ? recommendedByLevel[currentLevel]
+      : ['letters', 'writing'];
+
+  const modules = [
+    ...allModules.filter((module) =>
+      recommendedPages.includes(module.page)
+    ),
+    ...allModules.filter(
+      (module) => !recommendedPages.includes(module.page)
+    )
+  ];
+
+  const recommendedCount = recommendedPages.length;
+
   return (
     <section>
-      <h2>📚 O que vamos aprender?</h2>
+      <h2>📚 O QUE VAMOS APRENDER?</h2>
 
       <button
         className="audio"
         onClick={() =>
           speak(
-            'Escolha uma atividade. Letras para conhecer o alfabeto. Sílabas para juntar sons. Palavras para completar palavras. Leitura para escolher palavras. Escrita para praticar as letras.'
+            'AS PRIMEIRAS ATIVIDADES FORAM ESCOLHIDAS PARA VOCÊ. ESCOLHA UMA DELAS PARA COMEÇAR. VOCÊ TAMBÉM PODE FAZER AS OUTRAS ATIVIDADES.'
           )
         }
         style={{ marginBottom: '18px' }}
       >
         <Volume2 />
-        Ouvir opções
+        OUVIR OPÇÕES
       </button>
 
+      <p className="instruction">
+        ⭐ COMECE PELAS ATIVIDADES RECOMENDADAS
+      </p>
+
       <div className="grid">
-        {modules.map((module) => (
+        {modules.map((module, index) => (
           <button
             key={module.page}
             className="module"
             onClick={() => go(module.page)}
+            style={{
+              border:
+                index < recommendedCount
+                  ? '3px solid currentColor'
+                  : undefined
+            }}
           >
             <span>{module.emoji}</span>
             <b>{module.title}</b>
             <small>{module.text}</small>
+
+            {index < recommendedCount && (
+              <small>⭐ RECOMENDADA</small>
+            )}
           </button>
         ))}
       </div>
@@ -1292,7 +1439,16 @@ function Letters({
   const [index, setIndex] = useState(0);
   const [message, setMessage] = useState('');
 
-  const [upper, lower, word, emoji] = letters[index];
+  const [upper, _lower, word, emoji] = letters[index];
+  void _lower;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(`LETRA ${upper}. ${word}.`);
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [index, upper, word]);
 
   const next = () => {
     setIndex((current) => (current + 1) % letters.length);
@@ -1322,7 +1478,7 @@ function Letters({
       <div className="picture">{emoji}</div>
 
       <div className="trace">
-        {upper} {lower}
+        {upper}
       </div>
 
       <h3 style={{ textAlign: 'center' }}>{word}</h3>
@@ -1374,6 +1530,14 @@ function Syllables({
   const [index, setIndex] = useState(0);
   const [message, setMessage] = useState('');
   const current = syllables[index];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(`REPITA A SÍLABA ${current}`);
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [index, current]);
 
   const next = () => {
     setIndex((currentIndex) =>
@@ -1461,6 +1625,16 @@ function Quiz({
 
   const question = questions[index];
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(
+        `OLHE A IMAGEM E ESCOLHA A LETRA QUE COMPLETA A PALAVRA ${question.word}. OPÇÕES: ${question.options.join(', ')}`
+      );
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [index]);
+
   const displayedPattern = selectedLetter
     ? question.pattern.replace('_', selectedLetter)
     : question.pattern;
@@ -1538,6 +1712,16 @@ function Reading({
 
   const question = readingQuestions[index];
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(
+        `OLHE A IMAGEM E ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${question.options.join(', ')}`
+      );
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [index]);
+
   const choose = (option: string) => {
     if (option === question.answer) {
       setMessage(`Muito bem! É ${question.answer} 🎉`);
@@ -1605,6 +1789,16 @@ function Writing({
   const [message, setMessage] = useState('');
   const canvasRef = React.useRef<CanvasHandle>(null);
   const upper = alphabet[index];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(
+        `FAÇA A LETRA ${upper}. PASSE O DEDO OU O MOUSE POR CIMA DO MODELO.`
+      );
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [index, upper]);
 
   const nextLetter = () => {
     setIndex((current) => (current + 1) % alphabet.length);
@@ -1774,6 +1968,34 @@ function Games({
 
   const combine = combineGames[combineIndex];
   const organizeWord = organizeWords[wordIndex];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(`ENCONTRE A LETRA ${target}`);
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [target]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(
+        `OLHE A IMAGEM E ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combine.options.join(', ')}`
+      );
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [combineIndex]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(
+        `ORGANIZE AS LETRAS PARA FORMAR A PALAVRA ${organizeWord}`
+      );
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [wordIndex]);
 
   const refreshLetterGame = (newTarget?: string) => {
     const chosen =
@@ -2512,6 +2734,54 @@ function TeacherArea({
                         automaticamente conforme o desempenho.
                       </p>
                     )}
+                </div>
+
+                <div
+                  className="gameCard"
+                  style={{ marginTop: '20px' }}
+                >
+                  <h3>🕒 Histórico de evolução</h3>
+
+                  {selectedLearning.levelHistory.length === 0 ? (
+                    <p>
+                      Ainda não há mudanças de nível registradas.
+                    </p>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '10px'
+                      }}
+                    >
+                      {[...selectedLearning.levelHistory]
+                        .reverse()
+                        .map((entry, index) => (
+                          <div
+                            key={`${entry.at}-${index}`}
+                            style={{
+                              padding: '12px',
+                              borderRadius: '12px',
+                              border: '1px solid #ddd'
+                            }}
+                          >
+                            <b>{entry.level}</b>
+                            <div>
+                              <small>
+                                {new Date(
+                                  entry.at
+                                ).toLocaleDateString('pt-BR')}{' '}
+                                •{' '}
+                                {entry.source === 'sondagem'
+                                  ? 'SONDAGEM INICIAL'
+                                  : entry.source === 'professor'
+                                  ? 'ALTERAÇÃO DO PROFESSOR'
+                                  : 'ATUALIZAÇÃO AUTOMÁTICA'}
+                              </small>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </div>
 
                 <div
