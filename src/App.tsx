@@ -769,7 +769,7 @@ function RoleSelection({
 }) {
   return (
     <div
-      className="app"
+      className="app role-area"
       style={{
         minHeight: '100vh',
         display: 'flex',
@@ -872,7 +872,7 @@ function StudentSelection({
 }) {
   return (
     <div
-      className="app student-area"
+      className="app student-area student-select-area"
       style={{
         minHeight: '100vh',
         padding: '24px',
@@ -1076,7 +1076,7 @@ function InitialAssessment({
 
   return (
     <div
-      className="app student-area"
+      className="app student-area assessment-area"
       style={{
         minHeight: '100vh',
         padding: '24px',
@@ -2642,7 +2642,7 @@ function TeacherArea({
     : null;
 
   return (
-    <div className="app" style={{ minHeight: '100vh' }}>
+    <div className="app teacher-area" style={{ minHeight: '100vh' }}>
       <header>
         <button className="brand" onClick={onBack}>
           <span>👩‍🏫</span>
