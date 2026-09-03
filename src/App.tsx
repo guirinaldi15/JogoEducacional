@@ -817,7 +817,7 @@ function RoleSelection({
           }}
         >
           <button
-            className="module"
+            className="module role-card"
             onClick={onStudent}
             style={{
               minHeight: '260px',
@@ -835,7 +835,7 @@ function RoleSelection({
           </button>
 
           <button
-            className="module"
+            className="module role-card"
             onClick={onTeacher}
             style={{
               minHeight: '260px',
