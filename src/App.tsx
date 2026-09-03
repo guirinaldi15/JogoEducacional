@@ -947,7 +947,7 @@ function StudentSelection({
           <div className="grid" style={{ marginTop: '32px' }}>
             {students.map((student) => (
               <button
-                className="module"
+                className="module student-card"
                 key={student.id}
                 onClick={() => onSelect(student)}
                 style={{
