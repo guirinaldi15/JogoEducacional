@@ -1334,3 +1334,135 @@ nav svg{
   }
 }
 
+
+/* =========================================================
+   JOGO DE MATEMÁTICA
+   ========================================================= */
+
+.math-game-card{
+  overflow:hidden;
+  position:relative;
+  border:1px solid #d8e9f5;
+  background:
+    radial-gradient(circle at 100% 0%,rgba(246,190,53,.16),transparent 28%),
+    linear-gradient(145deg,#ffffff,#f6fbff);
+}
+
+.math-game-card::after{
+  content:"";
+  position:absolute;
+  right:-55px;
+  bottom:-65px;
+  width:180px;
+  height:180px;
+  border-radius:50%;
+  background:rgba(59,141,208,.07);
+  pointer-events:none;
+}
+
+.math-game-heading{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+}
+
+.math-game-heading h3{
+  margin:10px 0 4px;
+  font-size:25px;
+}
+
+.math-game-badge{
+  display:inline-flex;
+  padding:7px 11px;
+  border-radius:999px;
+  color:#72520b;
+  background:var(--yellow-100);
+  border:1px solid #f0d77d;
+  font-size:13px;
+  font-weight:1000;
+  letter-spacing:.4px;
+}
+
+.math-game-icon{
+  width:72px;
+  height:72px;
+  flex:0 0 72px;
+  display:grid;
+  place-items:center;
+  border-radius:22px;
+  background:var(--blue-100);
+  font-size:42px;
+  box-shadow:inset 0 0 0 1px rgba(59,141,208,.12);
+}
+
+.math-visual{
+  margin:22px auto 10px;
+  padding:20px;
+  max-width:620px;
+  border-radius:22px;
+  text-align:center;
+  font-size:clamp(36px,7vw,58px);
+  letter-spacing:7px;
+  line-height:1.6;
+  background:white;
+  border:2px dashed #b9d9ed;
+}
+
+.math-question{
+  margin:20px auto;
+  padding:18px 20px;
+  max-width:650px;
+  border-radius:20px;
+  color:var(--blue-950);
+  background:#eef8ff;
+  border:1px solid #cce6f7;
+  text-align:center;
+  font-size:clamp(28px,5vw,45px);
+  font-weight:1000;
+  letter-spacing:1px;
+}
+
+.math-answers button{
+  min-width:105px;
+  min-height:82px;
+  font-size:35px;
+  background:#fffdf3;
+  border-color:#efd57e;
+  box-shadow:0 5px 0 #f0dfa5;
+}
+
+.math-answers button:hover{
+  background:#fff7d7;
+  border-color:#e5bf3f;
+}
+
+@media(max-width:680px){
+  .math-game-heading{
+    align-items:center;
+  }
+
+  .math-game-heading h3{
+    font-size:20px;
+  }
+
+  .math-game-icon{
+    width:58px;
+    height:58px;
+    flex-basis:58px;
+    font-size:34px;
+    border-radius:18px;
+  }
+
+  .math-visual{
+    padding:14px;
+    letter-spacing:4px;
+  }
+
+  .math-answers button{
+    min-width:82px;
+    min-height:70px;
+    font-size:30px;
+  }
+}
+

@@ -694,7 +694,7 @@ export default function App() {
           onClick={() => setPage('home')}
         >
           <span>🌈</span>
-          <b>Alfabetiza+</b>
+          <b>Alfabetização Infantil Interativa</b>
         </button>
 
         <div
@@ -864,7 +864,7 @@ function RoleSelection({
       >
         <div style={{ fontSize: '64px' }}>🌈📚</div>
 
-        <h1>Alfabetiza+</h1>
+        <h1>Alfabetização Infantil Interativa</h1>
 
         <p className="instruction">
           Escolha como você deseja entrar.
@@ -874,7 +874,7 @@ function RoleSelection({
           className="audio"
           onClick={() =>
             speak(
-              'Bem-vindo ao Alfabetiza+. Se você é aluno, aperte em Entrar como Aluno. Se você é professor, aperte em Entrar como Professor.'
+              'Bem-vindo ao Alfabetização Infantil Interativa. Se você é aluno, aperte em Entrar como Aluno. Se você é professor, aperte em Entrar como Professor.'
             )
           }
           style={{ margin: '10px auto 0' }}
@@ -2140,6 +2140,119 @@ const completeWordGames = [
 const shuffle = <T,>(items: readonly T[]) =>
   [...items].sort(() => Math.random() - 0.5);
 
+
+type MathGame = {
+  type: 'count' | 'add' | 'subtract';
+  question: string;
+  visual?: string;
+  answer: number;
+  options: number[];
+};
+
+const mathGames: MathGame[] = [
+  {
+    type: 'count',
+    question: 'QUANTAS MAÇÃS TEM AQUI?',
+    visual: '🍎 🍎 🍎',
+    answer: 3,
+    options: [2, 3, 4]
+  },
+  {
+    type: 'count',
+    question: 'QUANTAS ESTRELAS TEM AQUI?',
+    visual: '⭐ ⭐ ⭐ ⭐ ⭐',
+    answer: 5,
+    options: [4, 5, 6]
+  },
+  {
+    type: 'count',
+    question: 'QUANTAS BOLAS TEM AQUI?',
+    visual: '⚽ ⚽ ⚽ ⚽',
+    answer: 4,
+    options: [3, 4, 5]
+  },
+  {
+    type: 'count',
+    question: 'QUANTOS PEIXES TEM AQUI?',
+    visual: '🐟 🐟 🐟 🐟 🐟 🐟',
+    answer: 6,
+    options: [5, 6, 7]
+  },
+  {
+    type: 'count',
+    question: 'QUANTOS CARROS TEM AQUI?',
+    visual: '🚗 🚗 🚗 🚗 🚗 🚗 🚗',
+    answer: 7,
+    options: [6, 7, 8]
+  },
+  {
+    type: 'add',
+    question: 'QUANTO É 1 + 2?',
+    answer: 3,
+    options: [2, 3, 4]
+  },
+  {
+    type: 'add',
+    question: 'QUANTO É 2 + 2?',
+    answer: 4,
+    options: [3, 4, 5]
+  },
+  {
+    type: 'add',
+    question: 'QUANTO É 3 + 2?',
+    answer: 5,
+    options: [4, 5, 6]
+  },
+  {
+    type: 'add',
+    question: 'QUANTO É 4 + 3?',
+    answer: 7,
+    options: [6, 7, 8]
+  },
+  {
+    type: 'add',
+    question: 'QUANTO É 5 + 4?',
+    answer: 9,
+    options: [8, 9, 10]
+  },
+  {
+    type: 'add',
+    question: 'QUANTO É 6 + 4?',
+    answer: 10,
+    options: [9, 10, 11]
+  },
+  {
+    type: 'subtract',
+    question: 'QUANTO É 3 - 1?',
+    answer: 2,
+    options: [1, 2, 3]
+  },
+  {
+    type: 'subtract',
+    question: 'QUANTO É 5 - 2?',
+    answer: 3,
+    options: [2, 3, 4]
+  },
+  {
+    type: 'subtract',
+    question: 'QUANTO É 7 - 3?',
+    answer: 4,
+    options: [3, 4, 5]
+  },
+  {
+    type: 'subtract',
+    question: 'QUANTO É 8 - 2?',
+    answer: 6,
+    options: [5, 6, 7]
+  },
+  {
+    type: 'subtract',
+    question: 'QUANTO É 10 - 4?',
+    answer: 6,
+    options: [5, 6, 7]
+  }
+];
+
 function Games({
   complete,
   wrong
@@ -2174,9 +2287,15 @@ function Games({
   const [completeLetter, setCompleteLetter] = useState('');
   const [completeMessage, setCompleteMessage] = useState('');
 
+  const [mathIndex, setMathIndex] = useState(
+    Math.floor(Math.random() * mathGames.length)
+  );
+  const [mathMessage, setMathMessage] = useState('');
+
   const combine = combineGames[combineIndex];
   const organizeWord = organizeWords[wordIndex];
   const completeGame = completeWordGames[completeIndex];
+  const mathGame = mathGames[mathIndex];
 
   const nextRandomIndex = (length: number, current: number) => {
     if (length <= 1) return 0;
@@ -2251,6 +2370,16 @@ function Games({
 
     return () => window.clearTimeout(timer);
   }, [completeIndex]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      speak(
+        `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathGame.options.join(', ')}`
+      );
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [mathIndex]);
 
   const chooseLetter = (letter: string) => {
     if (letter === target) {
@@ -2344,6 +2473,27 @@ function Games({
     }
   };
 
+  const chooseMathAnswer = (answer: number) => {
+    if (answer === mathGame.answer) {
+      setMathMessage(
+        `MUITO BEM! A RESPOSTA É ${mathGame.answer}! 🎉`
+      );
+      speak(`MUITO BEM! A RESPOSTA É ${mathGame.answer}.`);
+      complete('Jogo de matemática', 12);
+
+      setTimeout(() => {
+        setMathMessage('');
+        setMathIndex((current) =>
+          nextRandomIndex(mathGames.length, current)
+        );
+      }, 1200);
+    } else {
+      wrong();
+      setMathMessage('QUASE! CONTE OU CALCULE MAIS UMA VEZ 😊');
+      speak('QUASE! TENTE MAIS UMA VEZ.');
+    }
+  };
+
   const shuffledLetters = useMemo(
     () => shuffle(organizeWord.split('')),
     [organizeWord]
@@ -2361,7 +2511,7 @@ function Games({
         className="audio"
         onClick={() =>
           speak(
-            'AQUI TEM QUATRO JOGOS DIFERENTES. AS LETRAS, IMAGENS E PALAVRAS MUDAM A CADA RODADA.'
+            'AQUI TEM CINCO JOGOS DIFERENTES. TAMBÉM TEMOS UM JOGO DE MATEMÁTICA COM CONTAGEM, ADIÇÃO E SUBTRAÇÃO.'
           )
         }
         style={{ marginBottom: '18px' }}
@@ -2537,6 +2687,66 @@ function Games({
             }
           >
             {completeMessage}
+          </p>
+        )}
+      </div>
+
+      <div
+        className="gameCard math-game-card"
+        style={{ marginTop: '20px' }}
+      >
+        <div className="math-game-heading">
+          <div>
+            <span className="math-game-badge">➕ MATEMÁTICA</span>
+            <h3>JOGO 5 — DESAFIO DE MATEMÁTICA</h3>
+          </div>
+          <span className="math-game-icon">🧮</span>
+        </div>
+
+        <p className="instruction">
+          CONTE, SOME OU SUBTRAIA E ESCOLHA A RESPOSTA CORRETA.
+        </p>
+
+        {mathGame.visual && (
+          <div className="math-visual">{mathGame.visual}</div>
+        )}
+
+        <div className="math-question">
+          {mathGame.question}
+        </div>
+
+        <button
+          className="audio"
+          onClick={() =>
+            speak(
+              `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathGame.options.join(', ')}`
+            )
+          }
+        >
+          <Volume2 />
+          OUVIR DESAFIO
+        </button>
+
+        <div className="answers math-answers">
+          {mathGame.options.map((option) => (
+            <button
+              key={option}
+              onClick={() => chooseMathAnswer(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+
+        {mathMessage && (
+          <p
+            className={
+              mathMessage.includes('MUITO BEM')
+                ? 'good'
+                : 'hint'
+            }
+          >
+            {mathMessage}
           </p>
         )}
       </div>
