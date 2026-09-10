@@ -46,6 +46,7 @@ type Page =
   | 'reading'
   | 'writing'
   | 'games'
+  | 'math'
   | 'achievements'
   | 'profile'
   | 'adult';
@@ -801,6 +802,15 @@ export default function App() {
           />
         )}
 
+        {page === 'math' && (
+          <MathLearningGame
+            complete={() =>
+              complete('Matemática', 12)
+            }
+            wrong={wrong}
+          />
+        )}
+
         {page === 'achievements' && (
           <Achievements progress={progress} />
         )}
@@ -1479,16 +1489,22 @@ function Learn({
       emoji: '✍️',
       title: 'ESCRITA',
       text: 'PRATIQUE A ESCRITA DAS LETRAS.'
-    }
-  ];
+    ,
+    {
+      page: 'math',
+      emoji: '🧮',
+      title: 'MATEMÁTICA',
+      text: 'CONTE, SOME E SUBTRAIA BRINCANDO.'
+    },
+  }  ];
 
   const recommendedByLevel: Record<Level, Page[]> = {
-    'Garatuja': ['letters', 'writing'],
-    'Pré-silábico': ['letters', 'writing', 'words'],
-    'Silábico sem valor': ['letters', 'syllables', 'writing'],
-    'Silábico com valor': ['syllables', 'words', 'writing'],
-    'Silábico-Alfabético': ['words', 'reading', 'writing'],
-    'Alfabético': ['reading', 'words', 'writing']
+    'Garatuja': ['letters', 'writing', 'math'],
+    'Pré-silábico': ['letters', 'writing', 'words', 'math'],
+    'Silábico sem valor': ['letters', 'syllables', 'writing', 'math'],
+    'Silábico com valor': ['syllables', 'words', 'writing', 'math'],
+    'Silábico-Alfabético': ['words', 'reading', 'writing', 'math'],
+    'Alfabético': ['reading', 'words', 'writing', 'math']
   };
 
   const recommendedPages =
@@ -2253,6 +2269,222 @@ const mathGames: MathGame[] = [
   }
 ];
 
+
+const getMathHelp = (game: MathGame) => {
+  if (game.type === 'count') {
+    return 'DICA: APONTE PARA CADA FIGURA E CONTE DEVAGAR, UMA DE CADA VEZ.';
+  }
+
+  if (game.type === 'add') {
+    const numbers = game.question.match(/\d+/g)?.map(Number) ?? [];
+    if (numbers.length >= 2) {
+      return `DICA: COMECE NO ${numbers[0]} E CONTE MAIS ${numbers[1]} PARA A FRENTE.`;
+    }
+
+    return 'DICA: JUNTE AS DUAS QUANTIDADES E CONTE TUDO.';
+  }
+
+  const numbers = game.question.match(/\d+/g)?.map(Number) ?? [];
+  if (numbers.length >= 2) {
+    return `DICA: IMAGINE ${numbers[0]} OBJETOS E TIRE ${numbers[1]}. DEPOIS CONTE QUANTOS SOBRARAM.`;
+  }
+
+  return 'DICA: COMECE COM A PRIMEIRA QUANTIDADE E TIRE A SEGUNDA.';
+};
+
+function MathLearningGame({
+  complete,
+  wrong
+}: {
+  complete: () => void;
+  wrong: () => void;
+}) {
+  const QUESTION_TIME = 25;
+
+  const [index, setIndex] = useState(
+    Math.floor(Math.random() * mathGames.length)
+  );
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
+  const [message, setMessage] = useState('');
+  const [help, setHelp] = useState('');
+  const [locked, setLocked] = useState(false);
+  const [wrongCount, setWrongCount] = useState(0);
+
+  const game = mathGames[index];
+
+  const nextQuestion = () => {
+    let next = index;
+
+    while (mathGames.length > 1 && next === index) {
+      next = Math.floor(Math.random() * mathGames.length);
+    }
+
+    setIndex(next);
+    setTimeLeft(QUESTION_TIME);
+    setMessage('');
+    setHelp('');
+    setLocked(false);
+    setWrongCount(0);
+  };
+
+  useEffect(() => {
+    setTimeLeft(QUESTION_TIME);
+    setMessage('');
+    setHelp('');
+    setLocked(false);
+    setWrongCount(0);
+
+    const audioTimer = window.setTimeout(() => {
+      speak(
+        `${game.question} ESCOLHA UMA DAS RESPOSTAS: ${game.options.join(', ')}`
+      );
+    }, 400);
+
+    return () => window.clearTimeout(audioTimer);
+  }, [index]);
+
+  useEffect(() => {
+    if (locked) return;
+
+    if (timeLeft <= 0) {
+      setLocked(true);
+      wrong();
+      const hint = getMathHelp(game);
+      setMessage('O TEMPO ACABOU, MAS TUDO BEM! VAMOS APRENDER JUNTOS 😊');
+      setHelp(hint);
+      speak(`O TEMPO ACABOU. ${hint}`);
+
+      const nextTimer = window.setTimeout(() => {
+        nextQuestion();
+      }, 3500);
+
+      return () => window.clearTimeout(nextTimer);
+    }
+
+    const timer = window.setTimeout(() => {
+      setTimeLeft((current) => current - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [timeLeft, locked, index]);
+
+  const choose = (answer: number) => {
+    if (locked) return;
+
+    if (answer === game.answer) {
+      setLocked(true);
+      setMessage(`MUITO BEM! A RESPOSTA É ${game.answer}! 🎉`);
+      setHelp('');
+      speak(`MUITO BEM! A RESPOSTA É ${game.answer}.`);
+      complete();
+
+      setTimeout(nextQuestion, 1400);
+      return;
+    }
+
+    wrong();
+    const newWrongCount = wrongCount + 1;
+    setWrongCount(newWrongCount);
+
+    const hint = getMathHelp(game);
+    setMessage('QUASE! VAMOS TENTAR DE OUTRO JEITO 😊');
+    setHelp(hint);
+    speak(`QUASE. ${hint}`);
+
+    if (newWrongCount >= 2) {
+      setHelp(
+        `${hint} SE PRECISAR, USE OS DEDOS OU CONTE EM VOZ ALTA.`
+      );
+    }
+  };
+
+  const timePercent = Math.max(0, (timeLeft / QUESTION_TIME) * 100);
+
+  return (
+    <section>
+      <h2>🧮 MATEMÁTICA</h2>
+
+      <div className="gameCard math-learning-card">
+        <div className="math-top-row">
+          <div>
+            <span className="math-game-badge">DESAFIO MATEMÁTICO</span>
+            <h3>CONTE, SOME E SUBTRAIA</h3>
+          </div>
+
+          <div
+            className={
+              timeLeft <= 8
+                ? 'math-timer math-timer-warning'
+                : 'math-timer'
+            }
+          >
+            ⏱️ {timeLeft}s
+          </div>
+        </div>
+
+        <div className="math-time-track">
+          <div
+            className="math-time-fill"
+            style={{ width: `${timePercent}%` }}
+          />
+        </div>
+
+        <p className="instruction">
+          VOCÊ TEM {QUESTION_TIME} SEGUNDOS PARA CADA QUESTÃO.
+          SE ERRAR, O JOGO VAI DAR UMA DICA PARA AJUDAR.
+        </p>
+
+        {game.visual && (
+          <div className="math-visual">{game.visual}</div>
+        )}
+
+        <div className="math-question">{game.question}</div>
+
+        <button
+          className="audio"
+          onClick={() =>
+            speak(
+              `${game.question} ESCOLHA UMA DAS RESPOSTAS: ${game.options.join(', ')}`
+            )
+          }
+        >
+          <Volume2 />
+          OUVIR DESAFIO
+        </button>
+
+        <div className="answers math-answers">
+          {game.options.map((option) => (
+            <button
+              key={option}
+              disabled={locked}
+              onClick={() => choose(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+
+        {message && (
+          <div
+            className={
+              message.includes('MUITO BEM')
+                ? 'math-feedback success'
+                : 'math-feedback help'
+            }
+          >
+            <b>{message}</b>
+            {help && <p>{help}</p>}
+          </div>
+        )}
+
+        <button className="soft" onClick={nextQuestion}>
+          🔄 OUTRA QUESTÃO
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function Games({
   complete,
   wrong
@@ -2291,6 +2523,10 @@ function Games({
     Math.floor(Math.random() * mathGames.length)
   );
   const [mathMessage, setMathMessage] = useState('');
+  const [mathHelp, setMathHelp] = useState('');
+  const [mathTimeLeft, setMathTimeLeft] = useState(25);
+  const [mathLocked, setMathLocked] = useState(false);
+  const [mathWrongCount, setMathWrongCount] = useState(0);
 
   const combine = combineGames[combineIndex];
   const organizeWord = organizeWords[wordIndex];
@@ -2372,6 +2608,12 @@ function Games({
   }, [completeIndex]);
 
   useEffect(() => {
+    setMathTimeLeft(25);
+    setMathLocked(false);
+    setMathMessage('');
+    setMathHelp('');
+    setMathWrongCount(0);
+
     const timer = window.setTimeout(() => {
       speak(
         `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathGame.options.join(', ')}`
@@ -2380,6 +2622,36 @@ function Games({
 
     return () => window.clearTimeout(timer);
   }, [mathIndex]);
+
+  useEffect(() => {
+    if (mathLocked) return;
+
+    if (mathTimeLeft <= 0) {
+      setMathLocked(true);
+      wrong();
+
+      const hint = getMathHelp(mathGame);
+      setMathMessage(
+        'O TEMPO ACABOU, MAS TUDO BEM! VAMOS APRENDER JUNTOS 😊'
+      );
+      setMathHelp(hint);
+      speak(`O TEMPO ACABOU. ${hint}`);
+
+      const nextTimer = window.setTimeout(() => {
+        setMathIndex((current) =>
+          nextRandomIndex(mathGames.length, current)
+        );
+      }, 3500);
+
+      return () => window.clearTimeout(nextTimer);
+    }
+
+    const timer = window.setTimeout(() => {
+      setMathTimeLeft((current) => current - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [mathTimeLeft, mathLocked, mathIndex]);
 
   const chooseLetter = (letter: string) => {
     if (letter === target) {
@@ -2474,23 +2746,37 @@ function Games({
   };
 
   const chooseMathAnswer = (answer: number) => {
+    if (mathLocked) return;
+
     if (answer === mathGame.answer) {
+      setMathLocked(true);
       setMathMessage(
         `MUITO BEM! A RESPOSTA É ${mathGame.answer}! 🎉`
       );
+      setMathHelp('');
       speak(`MUITO BEM! A RESPOSTA É ${mathGame.answer}.`);
       complete('Jogo de matemática', 12);
 
       setTimeout(() => {
-        setMathMessage('');
         setMathIndex((current) =>
           nextRandomIndex(mathGames.length, current)
         );
-      }, 1200);
+      }, 1400);
     } else {
       wrong();
-      setMathMessage('QUASE! CONTE OU CALCULE MAIS UMA VEZ 😊');
-      speak('QUASE! TENTE MAIS UMA VEZ.');
+
+      const newWrongCount = mathWrongCount + 1;
+      setMathWrongCount(newWrongCount);
+
+      const hint = getMathHelp(mathGame);
+      setMathMessage('QUASE! VAMOS TENTAR DE OUTRO JEITO 😊');
+      setMathHelp(
+        newWrongCount >= 2
+          ? `${hint} SE PRECISAR, USE OS DEDOS OU CONTE EM VOZ ALTA.`
+          : hint
+      );
+
+      speak(`QUASE. ${hint}`);
     }
   };
 
@@ -2700,11 +2986,35 @@ function Games({
             <span className="math-game-badge">➕ MATEMÁTICA</span>
             <h3>JOGO 5 — DESAFIO DE MATEMÁTICA</h3>
           </div>
-          <span className="math-game-icon">🧮</span>
+          <div className="math-heading-actions">
+            <div
+              className={
+                mathTimeLeft <= 8
+                  ? 'math-timer math-timer-warning'
+                  : 'math-timer'
+              }
+            >
+              ⏱️ {mathTimeLeft}s
+            </div>
+            <span className="math-game-icon">🧮</span>
+          </div>
+        </div>
+
+        <div className="math-time-track">
+          <div
+            className="math-time-fill"
+            style={{
+              width: `${Math.max(
+                0,
+                (mathTimeLeft / 25) * 100
+              )}%`
+            }}
+          />
         </div>
 
         <p className="instruction">
-          CONTE, SOME OU SUBTRAIA E ESCOLHA A RESPOSTA CORRETA.
+          CONTE, SOME OU SUBTRAIA. VOCÊ TEM 25 SEGUNDOS.
+          SE ERRAR, O JOGO VAI DAR UMA DICA.
         </p>
 
         {mathGame.visual && (
@@ -2731,6 +3041,7 @@ function Games({
           {mathGame.options.map((option) => (
             <button
               key={option}
+              disabled={mathLocked}
               onClick={() => chooseMathAnswer(option)}
             >
               {option}
@@ -2739,15 +3050,16 @@ function Games({
         </div>
 
         {mathMessage && (
-          <p
+          <div
             className={
               mathMessage.includes('MUITO BEM')
-                ? 'good'
-                : 'hint'
+                ? 'math-feedback success'
+                : 'math-feedback help'
             }
           >
-            {mathMessage}
-          </p>
+            <b>{mathMessage}</b>
+            {mathHelp && <p>{mathHelp}</p>}
+          </div>
         )}
       </div>
     </section>
