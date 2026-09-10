@@ -95,6 +95,7 @@ type LearningState = {
 };
 
 const STUDENTS_KEY = 'alfabetizacao-students';
+const API_URL = 'http://10.137.11.230:3001/api';
 const TEACHER_PASSWORD_KEY = 'alfabetizacao-teacher-password';
 const DEFAULT_TEACHER_PASSWORD = '1234';
 
@@ -137,7 +138,7 @@ const loadStudents = (): Student[] => {
   }
 };
 
-const loadStudentProgress = (id: string): Progress => {
+const loadStudentProgressLocal = (id: string): Progress => {
   try {
     const saved = localStorage.getItem(studentProgressKey(id));
     return saved ? JSON.parse(saved) : cloneInitialProgress();
@@ -146,7 +147,7 @@ const loadStudentProgress = (id: string): Progress => {
   }
 };
 
-const loadLearningState = (id: string): LearningState => {
+const loadLearningStateLocal = (id: string): LearningState => {
   try {
     const saved = localStorage.getItem(studentLearningKey(id));
     if (!saved) {
@@ -163,12 +164,102 @@ const loadLearningState = (id: string): LearningState => {
         : []
     };
   } catch {
-    return { ...initialLearningState };
+    return { ...initialLearningState, levelHistory: [] };
   }
 };
 
-const saveLearningState = (id: string, state: LearningState) => {
-  localStorage.setItem(studentLearningKey(id), JSON.stringify(state));
+const loadStudentProgress = async (id: string): Promise<Progress> => {
+  try {
+    const response = await fetch(`${API_URL}/progresso/${id}`);
+
+    if (!response.ok) {
+      throw new Error('Erro ao carregar progresso');
+    }
+
+    const data = await response.json();
+
+    if (data) {
+      return {
+        ...cloneInitialProgress(),
+        ...data,
+        history: Array.isArray(data.history) ? data.history : []
+      };
+    }
+
+    // Migra automaticamente o progresso antigo salvo no navegador do host.
+    const localProgress = loadStudentProgressLocal(id);
+    await saveStudentProgress(id, localProgress);
+    return localProgress;
+  } catch (error) {
+    console.error('Erro ao buscar progresso:', error);
+    return loadStudentProgressLocal(id);
+  }
+};
+
+const saveStudentProgress = async (id: string, state: Progress) => {
+  try {
+    const response = await fetch(`${API_URL}/progresso/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(state)
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao salvar progresso');
+    }
+  } catch (error) {
+    console.error('Erro ao salvar progresso:', error);
+  }
+};
+
+const loadLearningState = async (id: string): Promise<LearningState> => {
+  try {
+    const response = await fetch(`${API_URL}/aprendizagem/${id}`);
+
+    if (!response.ok) {
+      throw new Error('Erro ao carregar aprendizagem');
+    }
+
+    const data = await response.json();
+
+    if (data) {
+      return {
+        ...initialLearningState,
+        ...data,
+        levelHistory: Array.isArray(data.levelHistory)
+          ? data.levelHistory
+          : []
+      };
+    }
+
+    // Migra automaticamente sondagem/nível antigos do localStorage do host.
+    const localLearning = loadLearningStateLocal(id);
+    await saveLearningState(id, localLearning);
+    return localLearning;
+  } catch (error) {
+    console.error('Erro ao buscar aprendizagem:', error);
+    return loadLearningStateLocal(id);
+  }
+};
+
+const saveLearningState = async (id: string, state: LearningState) => {
+  try {
+    const response = await fetch(`${API_URL}/aprendizagem/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(state)
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao salvar aprendizagem');
+    }
+  } catch (error) {
+    console.error('Erro ao salvar aprendizagem:', error);
+  }
 };
 
 const speak = (text: string) => {
@@ -284,8 +375,7 @@ const addLevelHistory = (
 export default function App() {
   const [page, setPage] = useState<Page>('role');
 
-  const [students, setStudents] =
-    useState<Student[]>(() => loadStudents());
+  const [students, setStudents] = useState<Student[]>([]);
 
   const [activeStudentId, setActiveStudentId] =
     useState<string | null>(null);
@@ -302,20 +392,24 @@ export default function App() {
   const [learning, setLearning] =
     useState<LearningState>({ ...initialLearningState });
 
+  const [teacherProgress, setTeacherProgress] =
+    useState<Progress | null>(null);
+
+  const [teacherLearning, setTeacherLearning] =
+    useState<LearningState | null>(null);
+
   const [name, setName] = useState('Aluno');
   const [avatar, setAvatar] = useState('🧒');
 
-  useEffect(() => {
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
-  }, [students]);
-
+  
   useEffect(() => {
     if (!activeStudentId) return;
-    localStorage.setItem(
-      studentProgressKey(activeStudentId),
-      JSON.stringify(progress)
-    );
-  }, [progress, activeStudentId]);
+    void saveStudentProgress(activeStudentId, progress);
+
+    if (teacherSelectedId === activeStudentId) {
+      setTeacherProgress(progress);
+    }
+  }, [progress, activeStudentId, teacherSelectedId]);
 
   useEffect(() => {
     if (!activeStudentId) return;
@@ -343,25 +437,91 @@ export default function App() {
             : current.levelHistory ?? []
       };
 
-      saveLearningState(activeStudentId, next);
+      void saveLearningState(activeStudentId, next);
       return next;
     });
   }, [progress, activeStudentId]);
 
   useEffect(() => {
     if (!activeStudentId) return;
-    saveLearningState(activeStudentId, learning);
-  }, [learning, activeStudentId]);
+    void saveLearningState(activeStudentId, learning);
 
-  const selectStudent = (student: Student) => {
-    const savedProgress = loadStudentProgress(student.id);
-    const savedLearning = loadLearningState(student.id);
+    if (teacherSelectedId === activeStudentId) {
+      setTeacherLearning(learning);
+    }
+  }, [learning, activeStudentId, teacherSelectedId]);
 
-    setActiveStudentId(student.id);
+  useEffect(() => {
+    if (!teacherSelectedId) {
+      setTeacherProgress(null);
+      setTeacherLearning(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const carregarDadosProfessor = async () => {
+      const [progressData, learningData] = await Promise.all([
+        loadStudentProgress(teacherSelectedId),
+        loadLearningState(teacherSelectedId)
+      ]);
+
+      if (cancelled) return;
+
+      setTeacherProgress(progressData);
+      setTeacherLearning(learningData);
+    };
+
+    void carregarDadosProfessor();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [teacherSelectedId, teacherRefresh]);
+
+  useEffect(() => {
+  const carregarAlunos = async () => {
+    try {
+      const response = await fetch(`${API_URL}/alunos`);
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar alunos');
+      }
+
+      const data = await response.json();
+
+      const alunosConvertidos: Student[] = data.map(
+        (aluno: any) => ({
+          id: aluno.id,
+          name: aluno.name ?? aluno.nome ?? '',
+          avatar: aluno.avatar ?? '🧒',
+          createdAt:
+            aluno.createdAt ??
+            aluno.criadoEm ??
+            new Date().toISOString()
+        })
+      );
+
+      setStudents(alunosConvertidos);
+    } catch (error) {
+      console.error('Erro ao buscar alunos:', error);
+    }
+  };
+
+  carregarAlunos();
+}, []);
+
+  const selectStudent = async (student: Student) => {
+    const [savedProgress, savedLearning] = await Promise.all([
+      loadStudentProgress(student.id),
+      loadLearningState(student.id)
+    ]);
+
     setName(student.name);
     setAvatar(student.avatar);
     setProgress(savedProgress);
     setLearning(savedLearning);
+    setActiveStudentId(student.id);
 
     if (savedLearning.assessmentCompleted) {
       setPage('home');
@@ -370,55 +530,107 @@ export default function App() {
     }
   };
 
-  const addStudent = (
-    studentName: string,
-    studentAvatar: string
-  ) => {
-    const cleanName = studentName.trim();
-    if (!cleanName) return false;
+  const addStudent = async (
+  studentName: string,
+  studentAvatar: string
+) => {
+  const cleanName = studentName.trim();
 
-    const newStudent: Student = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      name: cleanName,
-      avatar: studentAvatar,
-      createdAt: new Date().toISOString()
-    };
+  if (!cleanName) return false;
 
-    setStudents((current) => [...current, newStudent]);
+  try {
+    const response = await fetch(`${API_URL}/alunos`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        nome: cleanName,
+        avatar: studentAvatar
+      })
+    });
 
-    localStorage.setItem(
-      studentProgressKey(newStudent.id),
-      JSON.stringify(cloneInitialProgress())
-    );
+    if (!response.ok) {
+      throw new Error('Erro ao cadastrar aluno');
+    }
 
-    saveLearningState(newStudent.id, { ...initialLearningState });
+    const alunoServidor = await response.json();
+
+const newStudent: Student = {
+  id: alunoServidor.id,
+  name:
+    alunoServidor.name ??
+    alunoServidor.nome ??
+    cleanName,
+  avatar:
+    alunoServidor.avatar ??
+    studentAvatar,
+  createdAt:
+    alunoServidor.createdAt ??
+    alunoServidor.criadoEm ??
+    new Date().toISOString()
+};
+
+    setStudents((current) => [
+      ...current,
+      newStudent
+    ]);
+
+    await Promise.all([
+      saveStudentProgress(newStudent.id, cloneInitialProgress()),
+      saveLearningState(newStudent.id, {
+        ...initialLearningState,
+        levelHistory: []
+      })
+    ]);
 
     return true;
-  };
 
-  const deleteStudent = (id: string) => {
+  } catch (error) {
+    console.error('Erro ao cadastrar aluno:', error);
+    return false;
+  }
+};
+
+  const deleteStudent = async (id: string) => {
+  try {
+    const response = await fetch(
+      `${API_URL}/alunos/${id}`,
+      {
+        method: 'DELETE'
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Erro ao excluir aluno');
+    }
+
     setStudents((current) =>
       current.filter((student) => student.id !== id)
     );
 
-    localStorage.removeItem(studentProgressKey(id));
-    localStorage.removeItem(studentLearningKey(id));
-
-    if (teacherSelectedId === id) setTeacherSelectedId(null);
+    if (teacherSelectedId === id) {
+      setTeacherSelectedId(null);
+    }
 
     if (activeStudentId === id) {
       setActiveStudentId(null);
       setLearning({ ...initialLearningState });
       setProgress(cloneInitialProgress());
     }
-  };
 
-  const updateTeacherLevel = (
+  } catch (error) {
+    console.error('Erro ao excluir aluno:', error);
+  }
+};
+
+  const updateTeacherLevel = async (
     studentId: string,
     level: Level | null
   ) => {
-    const current = loadLearningState(studentId);
-    const next = {
+    const current = await loadLearningState(studentId);
+
+    const next: LearningState = {
       ...current,
       manualLevel: level,
       updatedAt: new Date().toISOString(),
@@ -432,27 +644,26 @@ export default function App() {
           : current.levelHistory ?? []
     };
 
-    saveLearningState(studentId, next);
+    await saveLearningState(studentId, next);
+    setTeacherLearning(next);
 
     if (activeStudentId === studentId) {
       setLearning(next);
     }
 
-    setTeacherSelectedId((id) => id);
+    setTeacherRefresh((current) => current + 1);
   };
 
-  const clearStudentActivityHistory = (studentId: string) => {
-    const currentProgress = loadStudentProgress(studentId);
+  const clearStudentActivityHistory = async (studentId: string) => {
+    const currentProgress = await loadStudentProgress(studentId);
 
     const nextProgress: Progress = {
       ...currentProgress,
       history: []
     };
 
-    localStorage.setItem(
-      studentProgressKey(studentId),
-      JSON.stringify(nextProgress)
-    );
+    await saveStudentProgress(studentId, nextProgress);
+    setTeacherProgress(nextProgress);
 
     if (activeStudentId === studentId) {
       setProgress(nextProgress);
@@ -519,7 +730,7 @@ export default function App() {
 
       next.suggestedLevel = suggested;
 
-      saveLearningState(activeStudentId, next);
+      void saveLearningState(activeStudentId, next);
       return next;
     });
   };
@@ -527,9 +738,12 @@ export default function App() {
   const complete = (
     label: string,
     score = 10,
-    kind?: 'letters' | 'syllables' | 'words'
+    kind?: 'letters' | 'syllables' | 'words',
+    affectsLiteracy = true
   ) => {
-    registerAttempt(true);
+    if (affectsLiteracy) {
+      registerAttempt(true);
+    }
 
     setProgress((p) => {
       let next = { ...p };
@@ -558,7 +772,9 @@ export default function App() {
     });
   };
 
-  const wrong = () => registerAttempt(false);
+  const wrong = (affectsLiteracy = true) => {
+    if (affectsLiteracy) registerAttempt(false);
+  };
 
   const finishAssessment = (score: number) => {
     if (!activeStudentId) return;
@@ -581,7 +797,7 @@ export default function App() {
     };
 
     setLearning(next);
-    saveLearningState(activeStudentId, next);
+    void saveLearningState(activeStudentId, next);
     setPage('home');
   };
 
@@ -650,11 +866,11 @@ export default function App() {
       ) || null;
 
     const selectedProgress = selectedStudent
-      ? loadStudentProgress(selectedStudent.id)
+      ? teacherProgress
       : null;
 
     const selectedLearning = selectedStudent
-      ? loadLearningState(selectedStudent.id)
+      ? teacherLearning
       : null;
 
     return (
@@ -799,15 +1015,19 @@ export default function App() {
           <Games
             complete={complete}
             wrong={wrong}
+            completeMath={(label, score) =>
+              complete(label, score, undefined, false)
+            }
+            wrongMath={() => wrong(false)}
           />
         )}
 
         {page === 'math' && (
           <MathLearningGame
             complete={() =>
-              complete('Matemática', 12)
+              complete('Matemática', 12, undefined, false)
             }
-            wrong={wrong}
+            wrong={() => wrong(false)}
           />
         )}
 
@@ -2527,7 +2747,9 @@ function MathLearningGame({
 
 function Games({
   complete,
-  wrong
+  wrong,
+  completeMath,
+  wrongMath
 }: {
   complete: (
     label: string,
@@ -2535,6 +2757,8 @@ function Games({
     kind?: 'letters' | 'syllables' | 'words'
   ) => void;
   wrong: () => void;
+  completeMath: (label: string, score?: number) => void;
+  wrongMath: () => void;
 }) {
   const [target, setTarget] = useState(
     findLetterPool[Math.floor(Math.random() * findLetterPool.length)]
@@ -2670,7 +2894,7 @@ function Games({
 
     if (mathTimeLeft <= 0) {
       setMathLocked(true);
-      wrong();
+      wrongMath();
       setMathMessage(
         'O TEMPO ACABOU! VAMOS PARA A PRÓXIMA QUESTÃO ⏱️'
       );
@@ -2796,7 +3020,7 @@ function Games({
       );
       setMathHelp('');
       speak(`MUITO BEM! A RESPOSTA É ${mathGame.answer}.`);
-      complete('Jogo de matemática', 12);
+      completeMath('Jogo de matemática', 12);
 
       setTimeout(() => {
         setMathIndex((current) =>
@@ -2804,7 +3028,7 @@ function Games({
         );
       }, 1400);
     } else {
-      wrong();
+      wrongMath();
 
       const newWrongCount = mathWrongCount + 1;
       setMathWrongCount(newWrongCount);
@@ -3331,7 +3555,7 @@ function TeacherArea({
   onAddStudent: (
     studentName: string,
     studentAvatar: string
-  ) => boolean;
+  ) => Promise<boolean>;
   onDeleteStudent: (id: string) => void;
   onViewStudent: (student: Student) => void;
   onChangeLevel: (
@@ -3509,9 +3733,6 @@ function TeacherArea({
 
           <div className="grid" style={{ marginTop: '24px' }}>
             {students.map((student) => {
-              const learning = loadLearningState(student.id);
-              const level = getCurrentLevel(learning);
-
               return (
                 <div className="module" key={student.id}>
                   <span style={{ fontSize: '54px' }}>
@@ -3521,9 +3742,7 @@ function TeacherArea({
                   <b>{student.name}</b>
 
                   <small>
-                    {learning.assessmentCompleted
-                      ? `Nível: ${level}`
-                      : 'Sondagem pendente'}
+                    Clique em "Ver progresso" para consultar os dados atualizados.
                   </small>
 
                   <button

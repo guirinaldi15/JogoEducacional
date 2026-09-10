@@ -1,0 +1,37 @@
+{
+  "alunos": [
+    {
+      "id": "1789047965808",
+      "nome": "Fabio",
+      "avatar": "👦",
+      "criadoEm": "2026-09-10T13:46:05.808Z"
+    }
+  ],
+  "progresso": {
+    "1789047965808": {
+      "points": 0,
+      "stars": 0,
+      "activities": 0,
+      "letters": 0,
+      "syllables": 0,
+      "words": 0,
+      "streak": 1,
+      "badges": [],
+      "history": []
+    }
+  },
+  "aprendizagem": {
+    "1789047965808": {
+      "assessmentCompleted": false,
+      "assessmentScore": 0,
+      "initialLevel": null,
+      "suggestedLevel": null,
+      "manualLevel": null,
+      "correctAnswers": 0,
+      "wrongAnswers": 0,
+      "totalAttempts": 0,
+      "updatedAt": null,
+      "levelHistory": []
+    }
+  }
+}
