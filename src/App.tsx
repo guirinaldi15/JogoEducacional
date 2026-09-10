@@ -695,7 +695,7 @@ export default function App() {
           onClick={() => setPage('home')}
         >
           <span>🌈</span>
-          <b>Alfabetização Infantil Interativa</b>
+          <b>Alfabetiza+</b>
         </button>
 
         <div
@@ -874,7 +874,7 @@ function RoleSelection({
       >
         <div style={{ fontSize: '64px' }}>🌈📚</div>
 
-        <h1>Alfabetização Infantil Interativa</h1>
+        <h1>Alfabetiza+</h1>
 
         <p className="instruction">
           Escolha como você deseja entrar.
@@ -884,7 +884,7 @@ function RoleSelection({
           className="audio"
           onClick={() =>
             speak(
-              'Bem-vindo ao Alfabetização Infantil Interativa. Se você é aluno, aperte em Entrar como Aluno. Se você é professor, aperte em Entrar como Professor.'
+              'Bem-vindo ao Alfabetiza+. Se você é aluno, aperte em Entrar como Aluno. Se você é professor, aperte em Entrar como Professor.'
             )
           }
           style={{ margin: '10px auto 0' }}
@@ -2276,20 +2276,49 @@ const getMathHelp = (game: MathGame) => {
   }
 
   if (game.type === 'add') {
-    const numbers = game.question.match(/\d+/g)?.map(Number) ?? [];
-    if (numbers.length >= 2) {
-      return `DICA: COMECE NO ${numbers[0]} E CONTE MAIS ${numbers[1]} PARA A FRENTE.`;
-    }
-
-    return 'DICA: JUNTE AS DUAS QUANTIDADES E CONTE TUDO.';
+    return 'DICA: CONTE O PRIMEIRO GRUPO, DEPOIS CONTE O SEGUNDO E JUNTE TUDO.';
   }
 
+  return 'DICA: CONTE TODOS OS OBJETOS E DEPOIS RETIRE A QUANTIDADE INDICADA.';
+};
+
+const getMathVisualHint = (game: MathGame) => {
   const numbers = game.question.match(/\d+/g)?.map(Number) ?? [];
-  if (numbers.length >= 2) {
-    return `DICA: IMAGINE ${numbers[0]} OBJETOS E TIRE ${numbers[1]}. DEPOIS CONTE QUANTOS SOBRARAM.`;
+
+  if (numbers.length < 2) return null;
+
+  const first = numbers[0];
+  const second = numbers[1];
+
+  if (game.type === 'add') {
+    const left = Array(first).fill('🍎').join(' ');
+    const right = Array(second).fill('🍌').join(' ');
+
+    return {
+      top: left,
+      symbol: '+',
+      bottom: right,
+      text: `CONTE ${first} MAÇÃS E MAIS ${second} BANANAS. DEPOIS CONTE TODAS JUNTAS.`
+    };
   }
 
-  return 'DICA: COMECE COM A PRIMEIRA QUANTIDADE E TIRE A SEGUNDA.';
+  if (game.type === 'subtract') {
+    const all = Array(first).fill('🍎');
+    const removed = all
+      .map((item, index) =>
+        index >= first - second ? '❌' : item
+      )
+      .join(' ');
+
+    return {
+      top: Array(first).fill('🍎').join(' '),
+      symbol: '−',
+      bottom: removed,
+      text: `COMECE COM ${first} MAÇÃS. TIRE ${second}. CONTE QUANTAS SOBRARAM SEM O X.`
+    };
+  }
+
+  return null;
 };
 
 function MathLearningGame({
@@ -2307,6 +2336,7 @@ function MathLearningGame({
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
   const [message, setMessage] = useState('');
   const [help, setHelp] = useState('');
+  const [visualHelp, setVisualHelp] = useState<ReturnType<typeof getMathVisualHint>>(null);
   const [locked, setLocked] = useState(false);
   const [wrongCount, setWrongCount] = useState(0);
 
@@ -2323,6 +2353,7 @@ function MathLearningGame({
     setTimeLeft(QUESTION_TIME);
     setMessage('');
     setHelp('');
+    setVisualHelp(null);
     setLocked(false);
     setWrongCount(0);
   };
@@ -2331,6 +2362,7 @@ function MathLearningGame({
     setTimeLeft(QUESTION_TIME);
     setMessage('');
     setHelp('');
+    setVisualHelp(null);
     setLocked(false);
     setWrongCount(0);
 
@@ -2349,14 +2381,12 @@ function MathLearningGame({
     if (timeLeft <= 0) {
       setLocked(true);
       wrong();
-      const hint = getMathHelp(game);
-      setMessage('O TEMPO ACABOU, MAS TUDO BEM! VAMOS APRENDER JUNTOS 😊');
-      setHelp(hint);
-      speak(`O TEMPO ACABOU. ${hint}`);
+      setMessage('O TEMPO ACABOU! VAMOS PARA A PRÓXIMA QUESTÃO ⏱️');
+      speak('O TEMPO ACABOU. VAMOS PARA A PRÓXIMA QUESTÃO.');
 
       const nextTimer = window.setTimeout(() => {
         nextQuestion();
-      }, 3500);
+      }, 1200);
 
       return () => window.clearTimeout(nextTimer);
     }
@@ -2387,15 +2417,16 @@ function MathLearningGame({
     setWrongCount(newWrongCount);
 
     const hint = getMathHelp(game);
-    setMessage('QUASE! VAMOS TENTAR DE OUTRO JEITO 😊');
-    setHelp(hint);
-    speak(`QUASE. ${hint}`);
+    const visual = getMathVisualHint(game);
 
-    if (newWrongCount >= 2) {
-      setHelp(
-        `${hint} SE PRECISAR, USE OS DEDOS OU CONTE EM VOZ ALTA.`
-      );
-    }
+    setMessage('QUASE! OLHE A DICA VISUAL E TENTE DE NOVO 😊');
+    setHelp(
+      newWrongCount >= 2
+        ? `${hint} CONTE DEVAGAR, APONTANDO PARA CADA FIGURA.`
+        : hint
+    );
+    setVisualHelp(visual);
+    speak(`QUASE. ${hint}`);
   };
 
   const timePercent = Math.max(0, (timeLeft / QUESTION_TIME) * 100);
@@ -2477,6 +2508,15 @@ function MathLearningGame({
           </div>
         )}
 
+        {visualHelp && (
+          <div className="math-visual-help">
+            <p>{visualHelp.text}</p>
+            <div className="math-object-row">{visualHelp.top}</div>
+            <div className="math-operation-symbol">{visualHelp.symbol}</div>
+            <div className="math-object-row">{visualHelp.bottom}</div>
+          </div>
+        )}
+
         <button className="soft" onClick={nextQuestion}>
           🔄 OUTRA QUESTÃO
         </button>
@@ -2524,6 +2564,7 @@ function Games({
   );
   const [mathMessage, setMathMessage] = useState('');
   const [mathHelp, setMathHelp] = useState('');
+  const [mathVisualHelp, setMathVisualHelp] = useState<ReturnType<typeof getMathVisualHint>>(null);
   const [mathTimeLeft, setMathTimeLeft] = useState(25);
   const [mathLocked, setMathLocked] = useState(false);
   const [mathWrongCount, setMathWrongCount] = useState(0);
@@ -2612,6 +2653,7 @@ function Games({
     setMathLocked(false);
     setMathMessage('');
     setMathHelp('');
+    setMathVisualHelp(null);
     setMathWrongCount(0);
 
     const timer = window.setTimeout(() => {
@@ -2629,19 +2671,18 @@ function Games({
     if (mathTimeLeft <= 0) {
       setMathLocked(true);
       wrong();
-
-      const hint = getMathHelp(mathGame);
       setMathMessage(
-        'O TEMPO ACABOU, MAS TUDO BEM! VAMOS APRENDER JUNTOS 😊'
+        'O TEMPO ACABOU! VAMOS PARA A PRÓXIMA QUESTÃO ⏱️'
       );
-      setMathHelp(hint);
-      speak(`O TEMPO ACABOU. ${hint}`);
+      setMathHelp('');
+      setMathVisualHelp(null);
+      speak('O TEMPO ACABOU. VAMOS PARA A PRÓXIMA QUESTÃO.');
 
       const nextTimer = window.setTimeout(() => {
         setMathIndex((current) =>
           nextRandomIndex(mathGames.length, current)
         );
-      }, 3500);
+      }, 1200);
 
       return () => window.clearTimeout(nextTimer);
     }
@@ -2769,12 +2810,15 @@ function Games({
       setMathWrongCount(newWrongCount);
 
       const hint = getMathHelp(mathGame);
-      setMathMessage('QUASE! VAMOS TENTAR DE OUTRO JEITO 😊');
+      const visual = getMathVisualHint(mathGame);
+
+      setMathMessage('QUASE! OLHE A DICA VISUAL E TENTE DE NOVO 😊');
       setMathHelp(
         newWrongCount >= 2
-          ? `${hint} SE PRECISAR, USE OS DEDOS OU CONTE EM VOZ ALTA.`
+          ? `${hint} CONTE DEVAGAR, APONTANDO PARA CADA FIGURA.`
           : hint
       );
+      setMathVisualHelp(visual);
 
       speak(`QUASE. ${hint}`);
     }
@@ -3059,6 +3103,15 @@ function Games({
           >
             <b>{mathMessage}</b>
             {mathHelp && <p>{mathHelp}</p>}
+          </div>
+        )}
+
+        {mathVisualHelp && (
+          <div className="math-visual-help">
+            <p>{mathVisualHelp.text}</p>
+            <div className="math-object-row">{mathVisualHelp.top}</div>
+            <div className="math-operation-symbol">{mathVisualHelp.symbol}</div>
+            <div className="math-object-row">{mathVisualHelp.bottom}</div>
           </div>
         )}
       </div>
