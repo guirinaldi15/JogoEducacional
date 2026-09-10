@@ -1,14 +1,14 @@
 {
   "alunos": [
     {
-      "id": "1789047965808",
-      "nome": "Fabio",
+      "id": "1789056462028-4ckudr",
+      "nome": "rinaldi",
       "avatar": "👦",
-      "criadoEm": "2026-09-10T13:46:05.808Z"
+      "criadoEm": "2026-09-10T16:07:42.028Z"
     }
   ],
   "progresso": {
-    "1789047965808": {
+    "1789056462028-4ckudr": {
       "points": 0,
       "stars": 0,
       "activities": 0,
@@ -21,17 +21,23 @@
     }
   },
   "aprendizagem": {
-    "1789047965808": {
-      "assessmentCompleted": false,
-      "assessmentScore": 0,
-      "initialLevel": null,
-      "suggestedLevel": null,
+    "1789056462028-4ckudr": {
+      "assessmentCompleted": true,
+      "assessmentScore": 2,
+      "initialLevel": "Silábico sem valor",
+      "suggestedLevel": "Silábico sem valor",
       "manualLevel": null,
       "correctAnswers": 0,
       "wrongAnswers": 0,
       "totalAttempts": 0,
-      "updatedAt": null,
-      "levelHistory": []
+      "updatedAt": "2026-09-10T16:09:55.676Z",
+      "levelHistory": [
+        {
+          "level": "Silábico sem valor",
+          "source": "sondagem",
+          "at": "2026-09-10T16:09:55.676Z"
+        }
+      ]
     }
   }
 }
