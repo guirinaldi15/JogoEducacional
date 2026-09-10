@@ -694,7 +694,7 @@ export default function App() {
           onClick={() => setPage('home')}
         >
           <span>🌈</span>
-          <b>Alfabetização Infantil Interativa</b>
+          <b>Alfabetiza+</b>
         </button>
 
         <div
@@ -864,7 +864,7 @@ function RoleSelection({
       >
         <div style={{ fontSize: '64px' }}>🌈📚</div>
 
-        <h1>Alfabetização Infantil Interativa</h1>
+        <h1>Alfabetiza+</h1>
 
         <p className="instruction">
           Escolha como você deseja entrar.
@@ -874,7 +874,7 @@ function RoleSelection({
           className="audio"
           onClick={() =>
             speak(
-              'Bem-vindo ao Alfabetização Infantil Interativa. Se você é aluno, aperte em Entrar como Aluno. Se você é professor, aperte em Entrar como Professor.'
+              'Bem-vindo ao Alfabetiza+. Se você é aluno, aperte em Entrar como Aluno. Se você é professor, aperte em Entrar como Professor.'
             )
           }
           style={{ margin: '10px auto 0' }}
