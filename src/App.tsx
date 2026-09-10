@@ -1489,14 +1489,14 @@ function Learn({
       emoji: '✍️',
       title: 'ESCRITA',
       text: 'PRATIQUE A ESCRITA DAS LETRAS.'
-    ,
+    },
     {
       page: 'math',
       emoji: '🧮',
       title: 'MATEMÁTICA',
       text: 'CONTE, SOME E SUBTRAIA BRINCANDO.'
-    },
-  }  ];
+    }
+  ];
 
   const recommendedByLevel: Record<Level, Page[]> = {
     'Garatuja': ['letters', 'writing', 'math'],
