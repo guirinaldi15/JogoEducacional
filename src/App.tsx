@@ -68,6 +68,71 @@ const LEVELS: Level[] = [
   'Alfabético'
 ];
 
+type LiteracyGameId = 1 | 2 | 3 | 4;
+
+const UNLOCKED_MODULES_BY_LEVEL: Record<Level, Page[]> = {
+  'Garatuja': [
+    'letters',
+    'writing',
+    'math'
+  ],
+
+  'Pré-silábico': [
+    'letters',
+    'writing',
+    'words',
+    'math'
+  ],
+
+  'Silábico sem valor': [
+    'letters',
+    'syllables',
+    'words',
+    'writing',
+    'math'
+  ],
+
+  'Silábico com valor': [
+    'letters',
+    'syllables',
+    'words',
+    'writing',
+    'math'
+  ],
+
+  'Silábico-Alfabético': [
+    'letters',
+    'syllables',
+    'words',
+    'reading',
+    'writing',
+    'math'
+  ],
+
+  'Alfabético': [
+    'letters',
+    'syllables',
+    'words',
+    'reading',
+    'writing',
+    'math'
+  ]
+};
+
+const UNLOCKED_GAMES_BY_LEVEL: Record<Level, LiteracyGameId[]> = {
+  'Garatuja': [1],
+
+  'Pré-silábico': [1, 2],
+
+  'Silábico sem valor': [1, 2, 4],
+
+  'Silábico com valor': [1, 2, 4],
+
+  'Silábico-Alfabético': [1, 2, 3, 4],
+
+  'Alfabético': [1, 2, 3, 4]
+};
+
 type Student = {
   id: string;
   name: string;
@@ -107,8 +172,8 @@ const saveTeacherPassword = (password: string) => {
   localStorage.setItem(TEACHER_PASSWORD_KEY, password);
 };
 
-const cloneInitialProgress = (): Progress =>
-  JSON.parse(JSON.stringify(initialProgress)) as Progress;
+const cloneInitialProgress = (): Progress => ''
+JSON.parse(JSON.stringify(initialProgress)) as Progress;
 
 const initialLearningState: LearningState = {
   assessmentCompleted: false,
@@ -401,7 +466,7 @@ export default function App() {
   const [name, setName] = useState('Aluno');
   const [avatar, setAvatar] = useState('🧒');
 
-  
+
   useEffect(() => {
     if (!activeStudentId) return;
     void saveStudentProgress(activeStudentId, progress);
@@ -430,10 +495,10 @@ export default function App() {
         levelHistory:
           suggested
             ? addLevelHistory(
-                current.levelHistory ?? [],
-                suggested,
-                'sistema'
-              )
+              current.levelHistory ?? [],
+              suggested,
+              'sistema'
+            )
             : current.levelHistory ?? []
       };
 
@@ -480,36 +545,36 @@ export default function App() {
   }, [teacherSelectedId, teacherRefresh]);
 
   useEffect(() => {
-  const carregarAlunos = async () => {
-    try {
-      const response = await fetch(`${API_URL}/alunos`);
+    const carregarAlunos = async () => {
+      try {
+        const response = await fetch(`${API_URL}/alunos`);
 
-      if (!response.ok) {
-        throw new Error('Erro ao carregar alunos');
+        if (!response.ok) {
+          throw new Error('Erro ao carregar alunos');
+        }
+
+        const data = await response.json();
+
+        const alunosConvertidos: Student[] = data.map(
+          (aluno: any) => ({
+            id: aluno.id,
+            name: aluno.name ?? aluno.nome ?? '',
+            avatar: aluno.avatar ?? '🧒',
+            createdAt:
+              aluno.createdAt ??
+              aluno.criadoEm ??
+              new Date().toISOString()
+          })
+        );
+
+        setStudents(alunosConvertidos);
+      } catch (error) {
+        console.error('Erro ao buscar alunos:', error);
       }
+    };
 
-      const data = await response.json();
-
-      const alunosConvertidos: Student[] = data.map(
-        (aluno: any) => ({
-          id: aluno.id,
-          name: aluno.name ?? aluno.nome ?? '',
-          avatar: aluno.avatar ?? '🧒',
-          createdAt:
-            aluno.createdAt ??
-            aluno.criadoEm ??
-            new Date().toISOString()
-        })
-      );
-
-      setStudents(alunosConvertidos);
-    } catch (error) {
-      console.error('Erro ao buscar alunos:', error);
-    }
-  };
-
-  carregarAlunos();
-}, []);
+    carregarAlunos();
+  }, []);
 
   const selectStudent = async (student: Student) => {
     const [savedProgress, savedLearning] = await Promise.all([
@@ -531,98 +596,98 @@ export default function App() {
   };
 
   const addStudent = async (
-  studentName: string,
-  studentAvatar: string
-) => {
-  const cleanName = studentName.trim();
+    studentName: string,
+    studentAvatar: string
+  ) => {
+    const cleanName = studentName.trim();
 
-  if (!cleanName) return false;
+    if (!cleanName) return false;
 
-  try {
-    const response = await fetch(`${API_URL}/alunos`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        nome: cleanName,
-        avatar: studentAvatar
-      })
-    });
+    try {
+      const response = await fetch(`${API_URL}/alunos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          nome: cleanName,
+          avatar: studentAvatar
+        })
+      });
 
-    if (!response.ok) {
-      throw new Error('Erro ao cadastrar aluno');
+      if (!response.ok) {
+        throw new Error('Erro ao cadastrar aluno');
+      }
+
+      const alunoServidor = await response.json();
+
+      const newStudent: Student = {
+        id: alunoServidor.id,
+        name:
+          alunoServidor.name ??
+          alunoServidor.nome ??
+          cleanName,
+        avatar:
+          alunoServidor.avatar ??
+          studentAvatar,
+        createdAt:
+          alunoServidor.createdAt ??
+          alunoServidor.criadoEm ??
+          new Date().toISOString()
+      };
+
+      setStudents((current) => [
+        ...current,
+        newStudent
+      ]);
+
+      await Promise.all([
+        saveStudentProgress(newStudent.id, cloneInitialProgress()),
+        saveLearningState(newStudent.id, {
+          ...initialLearningState,
+          levelHistory: []
+        })
+      ]);
+
+      return true;
+
+    } catch (error) {
+      console.error('Erro ao cadastrar aluno:', error);
+      return false;
     }
-
-    const alunoServidor = await response.json();
-
-const newStudent: Student = {
-  id: alunoServidor.id,
-  name:
-    alunoServidor.name ??
-    alunoServidor.nome ??
-    cleanName,
-  avatar:
-    alunoServidor.avatar ??
-    studentAvatar,
-  createdAt:
-    alunoServidor.createdAt ??
-    alunoServidor.criadoEm ??
-    new Date().toISOString()
-};
-
-    setStudents((current) => [
-      ...current,
-      newStudent
-    ]);
-
-    await Promise.all([
-      saveStudentProgress(newStudent.id, cloneInitialProgress()),
-      saveLearningState(newStudent.id, {
-        ...initialLearningState,
-        levelHistory: []
-      })
-    ]);
-
-    return true;
-
-  } catch (error) {
-    console.error('Erro ao cadastrar aluno:', error);
-    return false;
-  }
-};
+  };
 
   const deleteStudent = async (id: string) => {
-  try {
-    const response = await fetch(
-      `${API_URL}/alunos/${id}`,
-      {
-        method: 'DELETE'
+    try {
+      const response = await fetch(
+        `${API_URL}/alunos/${id}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Erro ao excluir aluno');
       }
-    );
 
-    if (!response.ok) {
-      throw new Error('Erro ao excluir aluno');
+      setStudents((current) =>
+        current.filter((student) => student.id !== id)
+      );
+
+      if (teacherSelectedId === id) {
+        setTeacherSelectedId(null);
+      }
+
+      if (activeStudentId === id) {
+        setActiveStudentId(null);
+        setLearning({ ...initialLearningState });
+        setProgress(cloneInitialProgress());
+      }
+
+    } catch (error) {
+      console.error('Erro ao excluir aluno:', error);
     }
-
-    setStudents((current) =>
-      current.filter((student) => student.id !== id)
-    );
-
-    if (teacherSelectedId === id) {
-      setTeacherSelectedId(null);
-    }
-
-    if (activeStudentId === id) {
-      setActiveStudentId(null);
-      setLearning({ ...initialLearningState });
-      setProgress(cloneInitialProgress());
-    }
-
-  } catch (error) {
-    console.error('Erro ao excluir aluno:', error);
-  }
-};
+  };
 
   const updateTeacherLevel = async (
     studentId: string,
@@ -637,10 +702,10 @@ const newStudent: Student = {
       levelHistory:
         level
           ? addLevelHistory(
-              current.levelHistory ?? [],
-              level,
-              'professor'
-            )
+            current.levelHistory ?? [],
+            level,
+            'professor'
+          )
           : current.levelHistory ?? []
     };
 
@@ -753,8 +818,8 @@ const newStudent: Student = {
           kind === 'letters'
             ? 26
             : kind === 'syllables'
-            ? 75
-            : 25;
+              ? 75
+              : 25;
 
         next = {
           ...next,
@@ -1013,6 +1078,7 @@ const newStudent: Student = {
 
         {page === 'games' && (
           <Games
+            learning={learning}
             complete={complete}
             wrong={wrong}
             completeMath={(label, score) =>
@@ -1680,68 +1746,47 @@ function Learn({
     title: string;
     text: string;
   }[] = [
-    {
-      page: 'letters',
-      emoji: '🔤',
-      title: 'LETRAS',
-      text: 'CONHEÇA AS LETRAS E SEUS SONS.'
-    },
-    {
-      page: 'syllables',
-      emoji: '🧩',
-      title: 'SÍLABAS',
-      text: 'JUNTE LETRAS E PRATIQUE OS SONS.'
-    },
-    {
-      page: 'words',
-      emoji: '📝',
-      title: 'PALAVRAS',
-      text: 'COMPLETE PALAVRAS COM A LETRA CERTA.'
-    },
-    {
-      page: 'reading',
-      emoji: '📚',
-      title: 'LEITURA',
-      text: 'ESCOLHA A PALAVRA QUE COMBINA COM A IMAGEM.'
-    },
-    {
-      page: 'writing',
-      emoji: '✍️',
-      title: 'ESCRITA',
-      text: 'PRATIQUE A ESCRITA DAS LETRAS.'
-    },
-    {
-      page: 'math',
-      emoji: '🧮',
-      title: 'MATEMÁTICA',
-      text: 'CONTE, SOME E SUBTRAIA BRINCANDO.'
-    }
-  ];
+      {
+        page: 'letters',
+        emoji: '🔤',
+        title: 'LETRAS',
+        text: 'CONHEÇA AS LETRAS E SEUS SONS.'
+      },
+      {
+        page: 'syllables',
+        emoji: '🧩',
+        title: 'SÍLABAS',
+        text: 'JUNTE LETRAS E PRATIQUE OS SONS.'
+      },
+      {
+        page: 'words',
+        emoji: '📝',
+        title: 'PALAVRAS',
+        text: 'COMPLETE PALAVRAS COM A LETRA CERTA.'
+      },
+      {
+        page: 'reading',
+        emoji: '📚',
+        title: 'LEITURA',
+        text: 'ESCOLHA A PALAVRA QUE COMBINA COM A IMAGEM.'
+      },
+      {
+        page: 'writing',
+        emoji: '✍️',
+        title: 'ESCRITA',
+        text: 'PRATIQUE A ESCRITA DAS LETRAS.'
+      },
+      {
+        page: 'math',
+        emoji: '🧮',
+        title: 'MATEMÁTICA',
+        text: 'CONTE, SOME E SUBTRAIA BRINCANDO.'
+      }
+    ];
 
-  const recommendedByLevel: Record<Level, Page[]> = {
-    'Garatuja': ['letters', 'writing', 'math'],
-    'Pré-silábico': ['letters', 'writing', 'words', 'math'],
-    'Silábico sem valor': ['letters', 'syllables', 'writing', 'math'],
-    'Silábico com valor': ['syllables', 'words', 'writing', 'math'],
-    'Silábico-Alfabético': ['words', 'reading', 'writing', 'math'],
-    'Alfabético': ['reading', 'words', 'writing', 'math']
-  };
-
-  const recommendedPages =
-    currentLevel
-      ? recommendedByLevel[currentLevel]
-      : ['letters', 'writing'];
-
-  const modules = [
-    ...allModules.filter((module) =>
-      recommendedPages.includes(module.page)
-    ),
-    ...allModules.filter(
-      (module) => !recommendedPages.includes(module.page)
-    )
-  ];
-
-  const recommendedCount = recommendedPages.length;
+  const unlockedPages = currentLevel
+    ? UNLOCKED_MODULES_BY_LEVEL[currentLevel]
+    : ['letters', 'writing', 'math'];
 
   return (
     <section>
@@ -1751,7 +1796,7 @@ function Learn({
         className="audio"
         onClick={() =>
           speak(
-            'AS PRIMEIRAS ATIVIDADES FORAM ESCOLHIDAS PARA VOCÊ. ESCOLHA UMA DELAS PARA COMEÇAR. VOCÊ TAMBÉM PODE FAZER AS OUTRAS ATIVIDADES.'
+            'ESCOLHA UMA ATIVIDADE LIBERADA. NOVAS ATIVIDADES SERÃO DESBLOQUEADAS CONFORME VOCÊ AVANÇAR.'
           )
         }
         style={{ marginBottom: '18px' }}
@@ -1761,31 +1806,58 @@ function Learn({
       </button>
 
       <p className="instruction">
-        ⭐ COMECE PELAS ATIVIDADES RECOMENDADAS
+        ⭐ CONTINUE APRENDENDO PARA DESBLOQUEAR NOVOS DESAFIOS
       </p>
 
       <div className="grid">
-        {modules.map((module, index) => (
-          <button
-            key={module.page}
-            className="module"
-            onClick={() => go(module.page)}
-            style={{
-              border:
-                index < recommendedCount
-                  ? '3px solid currentColor'
-                  : undefined
-            }}
-          >
-            <span>{module.emoji}</span>
-            <b>{module.title}</b>
-            <small>{module.text}</small>
+        {allModules.map((module) => {
+          const unlocked = unlockedPages.includes(module.page);
 
-            {index < recommendedCount && (
-              <small>⭐ RECOMENDADA</small>
-            )}
-          </button>
-        ))}
+          return (
+            <button
+              key={module.page}
+              className="module"
+              onClick={() => {
+                if (unlocked) {
+                  go(module.page);
+                } else {
+                  speak(
+                    'ESSA ATIVIDADE AINDA ESTÁ BLOQUEADA. CONTINUE APRENDENDO PARA DESBLOQUEAR.'
+                  );
+                }
+              }}
+              style={{
+                opacity: unlocked ? 1 : 0.5,
+                filter: unlocked ? 'none' : 'grayscale(70%)',
+                cursor: unlocked ? 'pointer' : 'not-allowed',
+                position: 'relative'
+              }}
+            >
+              {!unlocked && (
+                <Lock
+                  size={24}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '12px'
+                  }}
+                />
+              )}
+
+              <span>{module.emoji}</span>
+
+              <b>{module.title}</b>
+
+              <small>{module.text}</small>
+
+              <small>
+                {unlocked
+                  ? '✅ LIBERADA'
+                  : '🔒 BLOQUEADA'}
+              </small>
+            </button>
+          );
+        })}
       </div>
     </section>
   );
@@ -2746,20 +2818,37 @@ function MathLearningGame({
 }
 
 function Games({
+  learning,
   complete,
   wrong,
   completeMath,
   wrongMath
 }: {
+  learning: LearningState;
+
   complete: (
     label: string,
     score?: number,
     kind?: 'letters' | 'syllables' | 'words'
   ) => void;
+
   wrong: () => void;
-  completeMath: (label: string, score?: number) => void;
+
+  completeMath: (
+    label: string,
+    score?: number
+  ) => void;
+
   wrongMath: () => void;
 }) {
+  const currentLevel = getCurrentLevel(learning);
+
+  const unlockedGames = currentLevel
+    ? UNLOCKED_GAMES_BY_LEVEL[currentLevel]
+    : [1];
+
+  const gameUnlocked = (game: LiteracyGameId) =>
+    unlockedGames.includes(game);
   const [target, setTarget] = useState(
     findLetterPool[Math.floor(Math.random() * findLetterPool.length)]
   );
@@ -2814,7 +2903,7 @@ function Games({
     const chosen =
       newTarget ??
       findLetterPool[
-        Math.floor(Math.random() * findLetterPool.length)
+      Math.floor(Math.random() * findLetterPool.length)
       ];
 
     const distractors = shuffle(
@@ -3147,9 +3236,9 @@ function Games({
             {order.length
               ? order.join(' ')
               : organizeWord
-                  .split('')
-                  .map(() => '_')
-                  .join(' ')}
+                .split('')
+                .map(() => '_')
+                .join(' ')}
           </div>
 
           <button
@@ -3607,15 +3696,80 @@ function TeacherArea({
   const accuracy =
     selectedLearning && selectedLearning.totalAttempts > 0
       ? Math.round(
-          (selectedLearning.correctAnswers /
-            selectedLearning.totalAttempts) *
-            100
-        )
+        (selectedLearning.correctAnswers /
+          selectedLearning.totalAttempts) *
+        100
+      )
       : 0;
 
   const currentLevel = selectedLearning
     ? getCurrentLevel(selectedLearning)
     : null;
+  const getPedagogicalRecommendation = () => {
+    if (!selectedLearning || !selectedProgress || !currentLevel) {
+      return {
+        title: 'Acompanhamento pendente',
+        text:
+          'Ainda não existem dados suficientes para gerar uma recomendação pedagógica.'
+      };
+    }
+
+    if (currentLevel === 'Garatuja') {
+      return {
+        title: 'Reconhecimento de letras e escrita',
+        text:
+          'Priorize atividades de reconhecimento das letras, diferenciação entre desenho e escrita e prática de traçado.'
+      };
+    }
+
+    if (currentLevel === 'Pré-silábico') {
+      return {
+        title: 'Relação entre letras, sons e palavras',
+        text:
+          'Trabalhe letras iniciais, associação entre imagem e palavra e reconhecimento dos sons presentes nas palavras.'
+      };
+    }
+
+    if (currentLevel === 'Silábico sem valor') {
+      return {
+        title: 'Consciência silábica',
+        text:
+          'Reforce a percepção das sílabas, a divisão das palavras em partes sonoras e a relação entre fala e escrita.'
+      };
+    }
+
+    if (currentLevel === 'Silábico com valor') {
+      return {
+        title: 'Correspondência sonora',
+        text:
+          'Trabalhe a relação entre os sons das sílabas e as letras utilizadas, utilizando atividades de completar palavras.'
+      };
+    }
+
+    if (currentLevel === 'Silábico-Alfabético') {
+      return {
+        title: 'Formação de palavras e leitura',
+        text:
+          'Estimule a formação completa de palavras, organização de letras, leitura e escrita de palavras simples.'
+      };
+    }
+
+    if (accuracy < 60) {
+      return {
+        title: 'Reforço dos conteúdos',
+        text:
+          'A taxa de acerto está abaixo de 60%. Recomenda-se revisar conteúdos já trabalhados antes de avançar para atividades mais complexas.'
+      };
+    }
+
+    return {
+      title: 'Leitura e produção escrita',
+      text:
+        'Amplie as atividades de leitura, compreensão, escrita de palavras e produção de frases simples.'
+    };
+  };
+
+  const recommendation = getPedagogicalRecommendation();
 
   return (
     <div className="app teacher-area" style={{ minHeight: '100vh' }}>
@@ -3885,6 +4039,58 @@ function TeacherArea({
                   className="gameCard"
                   style={{ marginTop: '20px' }}
                 >
+                  <h3>💡 Recomendação pedagógica</h3>
+
+                  <p
+                    style={{
+                      fontSize: '18px',
+                      fontWeight: 800,
+                      marginBottom: '8px'
+                    }}
+                  >
+                    {recommendation.title}
+                  </p>
+
+                  <p>
+                    {recommendation.text}
+                  </p>
+
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '14px',
+                      borderRadius: '14px',
+                      background: '#f5f7fb'
+                    }}
+                  >
+                    <b>📊 Dados considerados</b>
+
+                    <p style={{ marginBottom: 0 }}>
+                      Nível atual: <b>{currentLevel}</b>
+                      <br />
+
+                      Taxa de acerto: <b>{accuracy}%</b>
+                      <br />
+
+                      Atividades concluídas:{' '}
+                      <b>{selectedProgress.activities}</b>
+                    </p>
+                  </div>
+
+                  <p
+                    className="instruction"
+                    style={{ marginTop: '14px' }}
+                  >
+                    Esta recomendação funciona como apoio ao acompanhamento.
+                    A avaliação e a decisão pedagógica continuam sendo
+                    responsabilidade do professor.
+                  </p>
+                </div>
+
+                <div
+                  className="gameCard"
+                  style={{ marginTop: '20px' }}
+                >
                   <h3>
                     <Pencil size={20} /> Editar nível do aluno
                   </h3>
@@ -4049,8 +4255,8 @@ function TeacherArea({
                                 {entry.source === 'sondagem'
                                   ? 'SONDAGEM INICIAL'
                                   : entry.source === 'professor'
-                                  ? 'ALTERAÇÃO DO PROFESSOR'
-                                  : 'ATUALIZAÇÃO AUTOMÁTICA'}
+                                    ? 'ALTERAÇÃO DO PROFESSOR'
+                                    : 'ATUALIZAÇÃO AUTOMÁTICA'}
                               </small>
                             </div>
                           </div>
