@@ -7,14 +7,38 @@
       "criadoEm": "2026-09-10T16:07:42.028Z"
     },
     {
-      "id": "1789488339031-pdyp1p",
-      "nome": "fabiola",
-      "avatar": "👧",
-      "criadoEm": "2026-09-15T16:05:39.032Z"
+      "id": "1789489171266-mivk3f",
+      "nome": "rapha",
+      "avatar": "👦",
+      "criadoEm": "2026-09-15T16:19:31.266Z"
     }
   ],
   "progresso": {
     "1789056462028-4ckudr": {
+      "points": 18,
+      "stars": 2,
+      "activities": 2,
+      "letters": 1,
+      "syllables": 1,
+      "words": 0,
+      "streak": 1,
+      "badges": [
+        "primeira"
+      ],
+      "history": [
+        {
+          "label": "Sílaba BA",
+          "at": 1789488895942,
+          "score": 10
+        },
+        {
+          "label": "Letra A",
+          "at": 1789488892044,
+          "score": 8
+        }
+      ]
+    },
+    "1789489171266-mivk3f": {
       "points": 0,
       "stars": 0,
       "activities": 0,
@@ -24,8 +48,7 @@
       "streak": 1,
       "badges": [],
       "history": []
-    },
-    "1789488339031-pdyp1p": null
+    }
   },
   "aprendizagem": {
     "1789056462028-4ckudr": {
@@ -34,10 +57,10 @@
       "initialLevel": "Silábico sem valor",
       "suggestedLevel": "Silábico sem valor",
       "manualLevel": "Silábico sem valor",
-      "correctAnswers": 0,
+      "correctAnswers": 2,
       "wrongAnswers": 0,
-      "totalAttempts": 0,
-      "updatedAt": "2026-09-15T13:54:49.751Z",
+      "totalAttempts": 2,
+      "updatedAt": "2026-09-15T16:14:55.942Z",
       "levelHistory": [
         {
           "level": "Silábico sem valor",
@@ -66,17 +89,28 @@
         }
       ]
     },
-    "1789488339031-pdyp1p": {
-      "assessmentCompleted": false,
-      "assessmentScore": 0,
-      "initialLevel": null,
-      "suggestedLevel": null,
+    "1789489171266-mivk3f": {
+      "assessmentCompleted": true,
+      "assessmentScore": 5,
+      "initialLevel": "Alfabético",
+      "suggestedLevel": "Alfabético",
       "manualLevel": null,
       "correctAnswers": 0,
       "wrongAnswers": 0,
       "totalAttempts": 0,
-      "updatedAt": null,
-      "levelHistory": []
+      "updatedAt": "2026-09-15T16:29:31.656Z",
+      "levelHistory": [
+        {
+          "level": "Alfabético",
+          "source": "sondagem",
+          "at": "2026-09-15T16:19:42.874Z"
+        },
+        {
+          "level": "Garatuja",
+          "source": "professor",
+          "at": "2026-09-15T16:29:00.640Z"
+        }
+      ]
     }
   }
 }
