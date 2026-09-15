@@ -26,16 +26,21 @@
       "assessmentScore": 2,
       "initialLevel": "Silábico sem valor",
       "suggestedLevel": "Silábico sem valor",
-      "manualLevel": null,
+      "manualLevel": "Garatuja",
       "correctAnswers": 0,
       "wrongAnswers": 0,
       "totalAttempts": 0,
-      "updatedAt": "2026-09-10T16:09:55.676Z",
+      "updatedAt": "2026-09-15T13:03:34.943Z",
       "levelHistory": [
         {
           "level": "Silábico sem valor",
           "source": "sondagem",
           "at": "2026-09-10T16:09:55.676Z"
+        },
+        {
+          "level": "Garatuja",
+          "source": "professor",
+          "at": "2026-09-15T13:03:34.943Z"
         }
       ]
     }

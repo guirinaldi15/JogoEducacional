@@ -68,6 +68,64 @@ const LEVELS: Level[] = [
   'Alfabético'
 ];
 
+type LiteracyGameId = 1 | 2 | 3 | 4;
+
+/* ===========================
+   LIBERAÇÃO POR NÍVEL
+=========================== */
+
+const UNLOCKED_MODULES_BY_LEVEL: Record<Level, Page[]> = {
+  'Garatuja': ['letters', 'writing', 'math'],
+  'Pré-silábico': ['letters', 'writing', 'words', 'math'],
+  'Silábico sem valor': [
+    'letters',
+    'syllables',
+    'words',
+    'writing',
+    'math'
+  ],
+  'Silábico com valor': [
+    'letters',
+    'syllables',
+    'words',
+    'writing',
+    'math'
+  ],
+  'Silábico-Alfabético': [
+    'letters',
+    'syllables',
+    'words',
+    'reading',
+    'writing',
+    'math'
+  ],
+  'Alfabético': [
+    'letters',
+    'syllables',
+    'words',
+    'reading',
+    'writing',
+    'math'
+  ]
+};
+
+const UNLOCKED_GAMES_BY_LEVEL: Record<Level, LiteracyGameId[]> = {
+  'Garatuja': [1],
+  'Pré-silábico': [1, 2],
+  'Silábico sem valor': [1, 2, 4],
+  'Silábico com valor': [1, 2, 4],
+  'Silábico-Alfabético': [1, 2, 3, 4],
+  'Alfabético': [1, 2, 3, 4]
+};
+
+const DEFAULT_UNLOCKED_MODULES: Page[] = [
+  'letters',
+  'writing',
+  'math'
+];
+
+const DEFAULT_UNLOCKED_GAMES: LiteracyGameId[] = [1];
+
 type Student = {
   id: string;
   name: string;
@@ -138,7 +196,7 @@ const loadStudents = (): Student[] => {
   }
 };
 
-const loadStudentProgressLocal = (id: string): Progress => {
+const loadStudentProgress = (id: string): Progress => {
   try {
     const saved = localStorage.getItem(studentProgressKey(id));
     return saved ? JSON.parse(saved) : cloneInitialProgress();
@@ -147,7 +205,7 @@ const loadStudentProgressLocal = (id: string): Progress => {
   }
 };
 
-const loadLearningStateLocal = (id: string): LearningState => {
+const loadLearningState = (id: string): LearningState => {
   try {
     const saved = localStorage.getItem(studentLearningKey(id));
     if (!saved) {
@@ -164,102 +222,12 @@ const loadLearningStateLocal = (id: string): LearningState => {
         : []
     };
   } catch {
-    return { ...initialLearningState, levelHistory: [] };
+    return { ...initialLearningState };
   }
 };
 
-const loadStudentProgress = async (id: string): Promise<Progress> => {
-  try {
-    const response = await fetch(`${API_URL}/progresso/${id}`);
-
-    if (!response.ok) {
-      throw new Error('Erro ao carregar progresso');
-    }
-
-    const data = await response.json();
-
-    if (data) {
-      return {
-        ...cloneInitialProgress(),
-        ...data,
-        history: Array.isArray(data.history) ? data.history : []
-      };
-    }
-
-    // Migra automaticamente o progresso antigo salvo no navegador do host.
-    const localProgress = loadStudentProgressLocal(id);
-    await saveStudentProgress(id, localProgress);
-    return localProgress;
-  } catch (error) {
-    console.error('Erro ao buscar progresso:', error);
-    return loadStudentProgressLocal(id);
-  }
-};
-
-const saveStudentProgress = async (id: string, state: Progress) => {
-  try {
-    const response = await fetch(`${API_URL}/progresso/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(state)
-    });
-
-    if (!response.ok) {
-      throw new Error('Erro ao salvar progresso');
-    }
-  } catch (error) {
-    console.error('Erro ao salvar progresso:', error);
-  }
-};
-
-const loadLearningState = async (id: string): Promise<LearningState> => {
-  try {
-    const response = await fetch(`${API_URL}/aprendizagem/${id}`);
-
-    if (!response.ok) {
-      throw new Error('Erro ao carregar aprendizagem');
-    }
-
-    const data = await response.json();
-
-    if (data) {
-      return {
-        ...initialLearningState,
-        ...data,
-        levelHistory: Array.isArray(data.levelHistory)
-          ? data.levelHistory
-          : []
-      };
-    }
-
-    // Migra automaticamente sondagem/nível antigos do localStorage do host.
-    const localLearning = loadLearningStateLocal(id);
-    await saveLearningState(id, localLearning);
-    return localLearning;
-  } catch (error) {
-    console.error('Erro ao buscar aprendizagem:', error);
-    return loadLearningStateLocal(id);
-  }
-};
-
-const saveLearningState = async (id: string, state: LearningState) => {
-  try {
-    const response = await fetch(`${API_URL}/aprendizagem/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(state)
-    });
-
-    if (!response.ok) {
-      throw new Error('Erro ao salvar aprendizagem');
-    }
-  } catch (error) {
-    console.error('Erro ao salvar aprendizagem:', error);
-  }
+const saveLearningState = (id: string, state: LearningState) => {
+  localStorage.setItem(studentLearningKey(id), JSON.stringify(state));
 };
 
 const speak = (text: string) => {
@@ -392,24 +360,17 @@ export default function App() {
   const [learning, setLearning] =
     useState<LearningState>({ ...initialLearningState });
 
-  const [teacherProgress, setTeacherProgress] =
-    useState<Progress | null>(null);
-
-  const [teacherLearning, setTeacherLearning] =
-    useState<LearningState | null>(null);
-
   const [name, setName] = useState('Aluno');
   const [avatar, setAvatar] = useState('🧒');
 
   
   useEffect(() => {
     if (!activeStudentId) return;
-    void saveStudentProgress(activeStudentId, progress);
-
-    if (teacherSelectedId === activeStudentId) {
-      setTeacherProgress(progress);
-    }
-  }, [progress, activeStudentId, teacherSelectedId]);
+    localStorage.setItem(
+      studentProgressKey(activeStudentId),
+      JSON.stringify(progress)
+    );
+  }, [progress, activeStudentId]);
 
   useEffect(() => {
     if (!activeStudentId) return;
@@ -437,47 +398,15 @@ export default function App() {
             : current.levelHistory ?? []
       };
 
-      void saveLearningState(activeStudentId, next);
+      saveLearningState(activeStudentId, next);
       return next;
     });
   }, [progress, activeStudentId]);
 
   useEffect(() => {
     if (!activeStudentId) return;
-    void saveLearningState(activeStudentId, learning);
-
-    if (teacherSelectedId === activeStudentId) {
-      setTeacherLearning(learning);
-    }
-  }, [learning, activeStudentId, teacherSelectedId]);
-
-  useEffect(() => {
-    if (!teacherSelectedId) {
-      setTeacherProgress(null);
-      setTeacherLearning(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    const carregarDadosProfessor = async () => {
-      const [progressData, learningData] = await Promise.all([
-        loadStudentProgress(teacherSelectedId),
-        loadLearningState(teacherSelectedId)
-      ]);
-
-      if (cancelled) return;
-
-      setTeacherProgress(progressData);
-      setTeacherLearning(learningData);
-    };
-
-    void carregarDadosProfessor();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [teacherSelectedId, teacherRefresh]);
+    saveLearningState(activeStudentId, learning);
+  }, [learning, activeStudentId]);
 
   useEffect(() => {
   const carregarAlunos = async () => {
@@ -511,17 +440,15 @@ export default function App() {
   carregarAlunos();
 }, []);
 
-  const selectStudent = async (student: Student) => {
-    const [savedProgress, savedLearning] = await Promise.all([
-      loadStudentProgress(student.id),
-      loadLearningState(student.id)
-    ]);
+  const selectStudent = (student: Student) => {
+    const savedProgress = loadStudentProgress(student.id);
+    const savedLearning = loadLearningState(student.id);
 
+    setActiveStudentId(student.id);
     setName(student.name);
     setAvatar(student.avatar);
     setProgress(savedProgress);
     setLearning(savedLearning);
-    setActiveStudentId(student.id);
 
     if (savedLearning.assessmentCompleted) {
       setPage('home');
@@ -576,14 +503,6 @@ const newStudent: Student = {
       newStudent
     ]);
 
-    await Promise.all([
-      saveStudentProgress(newStudent.id, cloneInitialProgress()),
-      saveLearningState(newStudent.id, {
-        ...initialLearningState,
-        levelHistory: []
-      })
-    ]);
-
     return true;
 
   } catch (error) {
@@ -624,13 +543,12 @@ const newStudent: Student = {
   }
 };
 
-  const updateTeacherLevel = async (
+  const updateTeacherLevel = (
     studentId: string,
     level: Level | null
   ) => {
-    const current = await loadLearningState(studentId);
-
-    const next: LearningState = {
+    const current = loadLearningState(studentId);
+    const next = {
       ...current,
       manualLevel: level,
       updatedAt: new Date().toISOString(),
@@ -644,26 +562,27 @@ const newStudent: Student = {
           : current.levelHistory ?? []
     };
 
-    await saveLearningState(studentId, next);
-    setTeacherLearning(next);
+    saveLearningState(studentId, next);
 
     if (activeStudentId === studentId) {
       setLearning(next);
     }
 
-    setTeacherRefresh((current) => current + 1);
+    setTeacherSelectedId((id) => id);
   };
 
-  const clearStudentActivityHistory = async (studentId: string) => {
-    const currentProgress = await loadStudentProgress(studentId);
+  const clearStudentActivityHistory = (studentId: string) => {
+    const currentProgress = loadStudentProgress(studentId);
 
     const nextProgress: Progress = {
       ...currentProgress,
       history: []
     };
 
-    await saveStudentProgress(studentId, nextProgress);
-    setTeacherProgress(nextProgress);
+    localStorage.setItem(
+      studentProgressKey(studentId),
+      JSON.stringify(nextProgress)
+    );
 
     if (activeStudentId === studentId) {
       setProgress(nextProgress);
@@ -730,7 +649,7 @@ const newStudent: Student = {
 
       next.suggestedLevel = suggested;
 
-      void saveLearningState(activeStudentId, next);
+      saveLearningState(activeStudentId, next);
       return next;
     });
   };
@@ -773,7 +692,9 @@ const newStudent: Student = {
   };
 
   const wrong = (affectsLiteracy = true) => {
-    if (affectsLiteracy) registerAttempt(false);
+    if (affectsLiteracy) {
+      registerAttempt(false);
+    }
   };
 
   const finishAssessment = (score: number) => {
@@ -797,7 +718,7 @@ const newStudent: Student = {
     };
 
     setLearning(next);
-    void saveLearningState(activeStudentId, next);
+    saveLearningState(activeStudentId, next);
     setPage('home');
   };
 
@@ -866,11 +787,11 @@ const newStudent: Student = {
       ) || null;
 
     const selectedProgress = selectedStudent
-      ? teacherProgress
+      ? loadStudentProgress(selectedStudent.id)
       : null;
 
     const selectedLearning = selectedStudent
-      ? teacherLearning
+      ? loadLearningState(selectedStudent.id)
       : null;
 
     return (
@@ -1013,8 +934,9 @@ const newStudent: Student = {
 
         {page === 'games' && (
           <Games
+            learning={learning}
             complete={complete}
-            wrong={wrong}
+            wrong={() => wrong(true)}
             completeMath={(label, score) =>
               complete(label, score, undefined, false)
             }
@@ -1718,30 +1640,18 @@ function Learn({
     }
   ];
 
-  const recommendedByLevel: Record<Level, Page[]> = {
-    'Garatuja': ['letters', 'writing', 'math'],
-    'Pré-silábico': ['letters', 'writing', 'words', 'math'],
-    'Silábico sem valor': ['letters', 'syllables', 'writing', 'math'],
-    'Silábico com valor': ['syllables', 'words', 'writing', 'math'],
-    'Silábico-Alfabético': ['words', 'reading', 'writing', 'math'],
-    'Alfabético': ['reading', 'words', 'writing', 'math']
-  };
-
-  const recommendedPages =
-    currentLevel
-      ? recommendedByLevel[currentLevel]
-      : ['letters', 'writing'];
+  const unlockedPages = currentLevel
+    ? UNLOCKED_MODULES_BY_LEVEL[currentLevel]
+    : DEFAULT_UNLOCKED_MODULES;
 
   const modules = [
     ...allModules.filter((module) =>
-      recommendedPages.includes(module.page)
+      unlockedPages.includes(module.page)
     ),
     ...allModules.filter(
-      (module) => !recommendedPages.includes(module.page)
+      (module) => !unlockedPages.includes(module.page)
     )
   ];
-
-  const recommendedCount = recommendedPages.length;
 
   return (
     <section>
@@ -1751,7 +1661,7 @@ function Learn({
         className="audio"
         onClick={() =>
           speak(
-            'AS PRIMEIRAS ATIVIDADES FORAM ESCOLHIDAS PARA VOCÊ. ESCOLHA UMA DELAS PARA COMEÇAR. VOCÊ TAMBÉM PODE FAZER AS OUTRAS ATIVIDADES.'
+            'AS ATIVIDADES LIBERADAS ESTÃO PRONTAS PARA VOCÊ. AS ATIVIDADES COM CADEADO SERÃO DESBLOQUEADAS CONFORME VOCÊ AVANÇAR.'
           )
         }
         style={{ marginBottom: '18px' }}
@@ -1761,31 +1671,88 @@ function Learn({
       </button>
 
       <p className="instruction">
-        ⭐ COMECE PELAS ATIVIDADES RECOMENDADAS
+        ✅ FAÇA AS ATIVIDADES LIBERADAS E AVANCE PARA NOVOS DESAFIOS
       </p>
 
       <div className="grid">
-        {modules.map((module, index) => (
-          <button
-            key={module.page}
-            className="module"
-            onClick={() => go(module.page)}
-            style={{
-              border:
-                index < recommendedCount
-                  ? '3px solid currentColor'
-                  : undefined
-            }}
-          >
-            <span>{module.emoji}</span>
-            <b>{module.title}</b>
-            <small>{module.text}</small>
+        {modules.map((module) => {
+          const unlocked = unlockedPages.includes(module.page);
 
-            {index < recommendedCount && (
-              <small>⭐ RECOMENDADA</small>
-            )}
-          </button>
-        ))}
+          return (
+            <button
+              key={module.page}
+              className="module"
+              onClick={() => {
+                if (unlocked) {
+                  go(module.page);
+                  return;
+                }
+
+                speak(
+                  'ESSA ATIVIDADE AINDA ESTÁ BLOQUEADA. CONTINUE PRATICANDO AS ATIVIDADES LIBERADAS PARA DESBLOQUEAR NOVOS DESAFIOS.'
+                );
+              }}
+              style={{
+                position: 'relative',
+                border: unlocked
+                  ? '3px solid currentColor'
+                  : '2px solid #cbd5e1',
+                opacity: unlocked ? 1 : 0.58,
+                filter: unlocked ? 'none' : 'grayscale(0.65)',
+                cursor: unlocked ? 'pointer' : 'not-allowed'
+              }}
+            >
+              {!unlocked && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '12px',
+                    right: '12px',
+                    width: '38px',
+                    height: '38px',
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: '50%',
+                    background: '#eef2f7',
+                    color: '#64748b'
+                  }}
+                >
+                  <Lock size={20} />
+                </span>
+              )}
+
+              <span>{module.emoji}</span>
+              <b>{module.title}</b>
+              <small>{module.text}</small>
+
+              <small
+                style={{
+                  fontWeight: 900,
+                  marginTop: '6px'
+                }}
+              >
+                {unlocked
+                  ? '✅ LIBERADA'
+                  : '🔒 CONTINUE APRENDENDO PARA DESBLOQUEAR'}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        className="gameCard"
+        style={{
+          marginTop: '20px',
+          padding: '18px',
+          textAlign: 'center'
+        }}
+      >
+        <b>🧮 MATEMÁTICA É INDEPENDENTE DA ALFABETIZAÇÃO</b>
+        <p style={{ marginBottom: 0 }}>
+          OS DESAFIOS DE MATEMÁTICA PERMANECEM DISPONÍVEIS EM TODOS OS
+          NÍVEIS E NÃO ALTERAM O NÍVEL DE ESCRITA DO ALUNO.
+        </p>
       </div>
     </section>
   );
@@ -2745,12 +2712,70 @@ function MathLearningGame({
   );
 }
 
+function LockedGameCard({
+  number,
+  title,
+  emoji
+}: {
+  number: number;
+  title: string;
+  emoji: string;
+}) {
+  return (
+    <div
+      className="gameCard"
+      style={{
+        minHeight: '230px',
+        display: 'grid',
+        placeItems: 'center',
+        textAlign: 'center',
+        padding: '28px',
+        opacity: 0.62,
+        border: '2px dashed #94a3b8',
+        background: '#f8fafc'
+      }}
+    >
+      <div>
+        <div
+          style={{
+            width: '58px',
+            height: '58px',
+            margin: '0 auto 12px',
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: '50%',
+            background: '#e2e8f0',
+            color: '#475569'
+          }}
+        >
+          <Lock size={28} />
+        </div>
+
+        <div style={{ fontSize: '42px', marginBottom: '8px' }}>
+          {emoji}
+        </div>
+
+        <h3>
+          JOGO {number} — {title}
+        </h3>
+
+        <p style={{ marginBottom: 0, fontWeight: 800 }}>
+          🔒 CONTINUE NAS ATIVIDADES LIBERADAS PARA DESBLOQUEAR ESTE
+          DESAFIO.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function Games({
+  learning,
   complete,
   wrong,
   completeMath,
   wrongMath
 }: {
+  learning: LearningState;
   complete: (
     label: string,
     score?: number,
@@ -2760,6 +2785,15 @@ function Games({
   completeMath: (label: string, score?: number) => void;
   wrongMath: () => void;
 }) {
+  const currentLevel = getCurrentLevel(learning);
+
+  const unlockedGames = currentLevel
+    ? UNLOCKED_GAMES_BY_LEVEL[currentLevel]
+    : DEFAULT_UNLOCKED_GAMES;
+
+  const isGameUnlocked = (gameId: LiteracyGameId) =>
+    unlockedGames.includes(gameId);
+
   const [target, setTarget] = useState(
     findLetterPool[Math.floor(Math.random() * findLetterPool.length)]
   );
@@ -2788,7 +2822,8 @@ function Games({
   );
   const [mathMessage, setMathMessage] = useState('');
   const [mathHelp, setMathHelp] = useState('');
-  const [mathVisualHelp, setMathVisualHelp] = useState<ReturnType<typeof getMathVisualHint>>(null);
+  const [mathVisualHelp, setMathVisualHelp] =
+    useState<ReturnType<typeof getMathVisualHint>>(null);
   const [mathTimeLeft, setMathTimeLeft] = useState(25);
   const [mathLocked, setMathLocked] = useState(false);
   const [mathWrongCount, setMathWrongCount] = useState(0);
@@ -2830,6 +2865,8 @@ function Games({
   }, []);
 
   useEffect(() => {
+    if (!isGameUnlocked(1)) return;
+
     const timer = window.setTimeout(() => {
       const examples = letterWords[target] ?? [];
       const exampleText = examples.length
@@ -2840,9 +2877,11 @@ function Games({
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [target]);
+  }, [target, currentLevel]);
 
   useEffect(() => {
+    if (!isGameUnlocked(2)) return;
+
     const timer = window.setTimeout(() => {
       speak(
         `OLHE A IMAGEM E ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combine.options.join(', ')}`
@@ -2850,9 +2889,11 @@ function Games({
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [combineIndex]);
+  }, [combineIndex, currentLevel]);
 
   useEffect(() => {
+    if (!isGameUnlocked(3)) return;
+
     const timer = window.setTimeout(() => {
       speak(
         `ORGANIZE AS LETRAS PARA FORMAR A PALAVRA ${organizeWord}`
@@ -2860,9 +2901,11 @@ function Games({
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [wordIndex]);
+  }, [wordIndex, currentLevel]);
 
   useEffect(() => {
+    if (!isGameUnlocked(4)) return;
+
     const timer = window.setTimeout(() => {
       speak(
         `COMPLETE A PALAVRA ${completeGame.word}. ESCOLHA A LETRA QUE ESTÁ FALTANDO.`
@@ -2870,7 +2913,7 @@ function Games({
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [completeIndex]);
+  }, [completeIndex, currentLevel]);
 
   useEffect(() => {
     setMathTimeLeft(25);
@@ -2919,6 +2962,8 @@ function Games({
   }, [mathTimeLeft, mathLocked, mathIndex]);
 
   const chooseLetter = (letter: string) => {
+    if (!isGameUnlocked(1)) return;
+
     if (letter === target) {
       const examples = letterWords[target] ?? [];
       const example =
@@ -2941,6 +2986,8 @@ function Games({
   };
 
   const chooseCombine = (word: string) => {
+    if (!isGameUnlocked(2)) return;
+
     if (word === combine.answer) {
       setCombineMessage(
         `MUITO BEM! ${combine.emoji} É ${combine.answer}! 🎉`
@@ -2964,11 +3011,14 @@ function Games({
   };
 
   const addLetter = (letter: string) => {
+    if (!isGameUnlocked(3)) return;
     if (order.length >= organizeWord.length) return;
     setOrder((current) => [...current, letter]);
   };
 
   const checkWord = () => {
+    if (!isGameUnlocked(3)) return;
+
     if (order.join('') === organizeWord) {
       setOrganizeMessage(`${organizeWord} FORMADA! 🌟`);
       speak(organizeWord);
@@ -2988,6 +3038,8 @@ function Games({
   };
 
   const chooseCompleteLetter = (letter: string) => {
+    if (!isGameUnlocked(4)) return;
+
     setCompleteLetter(letter);
 
     if (letter === completeGame.answer) {
@@ -3065,183 +3117,224 @@ function Games({
         className="audio"
         onClick={() =>
           speak(
-            'AQUI TEM CINCO JOGOS DIFERENTES. TAMBÉM TEMOS UM JOGO DE MATEMÁTICA COM CONTAGEM, ADIÇÃO E SUBTRAÇÃO.'
+            'OS JOGOS COM CADEADO SERÃO LIBERADOS CONFORME VOCÊ AVANÇAR NA ALFABETIZAÇÃO. O JOGO DE MATEMÁTICA FICA SEMPRE LIBERADO.'
           )
         }
         style={{ marginBottom: '18px' }}
       >
         <Volume2 />
-        OUVIR COMO JOGAR
+        OUVIR COMO FUNCIONA
       </button>
 
-      <div className="gameCard">
-        <h3>JOGO 1 — ENCONTRE A LETRA</h3>
+      <p className="instruction">
+        🎯 NOVOS JOGOS SÃO DESBLOQUEADOS CONFORME A EVOLUÇÃO NA
+        ALFABETIZAÇÃO.
+      </p>
 
-        <p>
-          ENCONTRE A LETRA <b>{target}</b>
-        </p>
-
-        <button
-          className="audio"
-          onClick={() => {
-            const examples = letterWords[target] ?? [];
-            speak(
-              `ENCONTRE A LETRA ${target}. ${examples.length ? `COMO EM ${examples.join(', ')}` : ''}`
-            );
-          }}
-        >
-          <Volume2 />
-          OUVIR
-        </button>
-
-        <div className="answers">
-          {letterOptions.map((letter) => (
-            <button
-              key={letter}
-              onClick={() => chooseLetter(letter)}
-            >
-              {letter}
-            </button>
-          ))}
-        </div>
-
-        {letterMessage && <p className="good">{letterMessage}</p>}
-      </div>
-
-      <div className="grid mini">
+      {isGameUnlocked(1) ? (
         <div className="gameCard">
-          <h3>JOGO 2 — IMAGEM E PALAVRA</h3>
+          <h3>JOGO 1 — ENCONTRE A LETRA</h3>
 
-          <div className="picture">{combine.emoji}</div>
+          <p>
+            ENCONTRE A LETRA <b>{target}</b>
+          </p>
 
           <button
             className="audio"
-            onClick={() =>
+            onClick={() => {
+              const examples = letterWords[target] ?? [];
               speak(
-                `ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combine.options.join(', ')}`
-              )
-            }
+                `ENCONTRE A LETRA ${target}. ${examples.length ? `COMO EM ${examples.join(', ')}` : ''}`
+              );
+            }}
           >
             <Volume2 />
             OUVIR
           </button>
 
-          <div className="answers words">
-            {combine.options.map((word) => (
-              <button
-                key={word}
-                onClick={() => chooseCombine(word)}
-              >
-                {word}
-              </button>
-            ))}
-          </div>
-
-          {combineMessage && <p className="good">{combineMessage}</p>}
-        </div>
-
-        <div className="gameCard">
-          <h3>JOGO 3 — ORGANIZE A PALAVRA</h3>
-
-          <div className="pattern">
-            {order.length
-              ? order.join(' ')
-              : organizeWord
-                  .split('')
-                  .map(() => '_')
-                  .join(' ')}
-          </div>
-
-          <button
-            className="audio"
-            onClick={() =>
-              speak(
-                `ORGANIZE AS LETRAS PARA FORMAR ${organizeWord}`
-              )
-            }
-          >
-            <Volume2 />
-            OUVIR PALAVRA
-          </button>
-
           <div className="answers">
-            {shuffledLetters.map((letter, index) => (
+            {letterOptions.map((letter) => (
               <button
-                key={`${letter}-${index}`}
-                onClick={() => addLetter(letter)}
+                key={letter}
+                onClick={() => chooseLetter(letter)}
               >
                 {letter}
               </button>
             ))}
           </div>
 
-          <div className="row">
-            <button
-              className="soft"
-              onClick={() => {
-                setOrder([]);
-                setOrganizeMessage('');
-              }}
-            >
-              LIMPAR
-            </button>
-
-            <button
-              className="primary"
-              onClick={checkWord}
-            >
-              CONFERIR
-            </button>
-          </div>
-
-          {organizeMessage && (
-            <p className="good">{organizeMessage}</p>
-          )}
+          {letterMessage && <p className="good">{letterMessage}</p>}
         </div>
+      ) : (
+        <LockedGameCard
+          number={1}
+          title="ENCONTRE A LETRA"
+          emoji="🔤"
+        />
+      )}
+
+      <div className="grid mini" style={{ marginTop: '20px' }}>
+        {isGameUnlocked(2) ? (
+          <div className="gameCard">
+            <h3>JOGO 2 — IMAGEM E PALAVRA</h3>
+
+            <div className="picture">{combine.emoji}</div>
+
+            <button
+              className="audio"
+              onClick={() =>
+                speak(
+                  `ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combine.options.join(', ')}`
+                )
+              }
+            >
+              <Volume2 />
+              OUVIR
+            </button>
+
+            <div className="answers words">
+              {combine.options.map((word) => (
+                <button
+                  key={word}
+                  onClick={() => chooseCombine(word)}
+                >
+                  {word}
+                </button>
+              ))}
+            </div>
+
+            {combineMessage && (
+              <p className="good">{combineMessage}</p>
+            )}
+          </div>
+        ) : (
+          <LockedGameCard
+            number={2}
+            title="IMAGEM E PALAVRA"
+            emoji="🖼️"
+          />
+        )}
+
+        {isGameUnlocked(3) ? (
+          <div className="gameCard">
+            <h3>JOGO 3 — ORGANIZE A PALAVRA</h3>
+
+            <div className="pattern">
+              {order.length
+                ? order.join(' ')
+                : organizeWord
+                    .split('')
+                    .map(() => '_')
+                    .join(' ')}
+            </div>
+
+            <button
+              className="audio"
+              onClick={() =>
+                speak(
+                  `ORGANIZE AS LETRAS PARA FORMAR ${organizeWord}`
+                )
+              }
+            >
+              <Volume2 />
+              OUVIR PALAVRA
+            </button>
+
+            <div className="answers">
+              {shuffledLetters.map((letter, index) => (
+                <button
+                  key={`${letter}-${index}`}
+                  onClick={() => addLetter(letter)}
+                >
+                  {letter}
+                </button>
+              ))}
+            </div>
+
+            <div className="row">
+              <button
+                className="soft"
+                onClick={() => {
+                  setOrder([]);
+                  setOrganizeMessage('');
+                }}
+              >
+                LIMPAR
+              </button>
+
+              <button
+                className="primary"
+                onClick={checkWord}
+              >
+                CONFERIR
+              </button>
+            </div>
+
+            {organizeMessage && (
+              <p className="good">{organizeMessage}</p>
+            )}
+          </div>
+        ) : (
+          <LockedGameCard
+            number={3}
+            title="ORGANIZE A PALAVRA"
+            emoji="🔠"
+          />
+        )}
       </div>
 
-      <div className="gameCard" style={{ marginTop: '20px' }}>
-        <h3>JOGO 4 — COMPLETE A PALAVRA</h3>
+      <div style={{ marginTop: '20px' }}>
+        {isGameUnlocked(4) ? (
+          <div className="gameCard">
+            <h3>JOGO 4 — COMPLETE A PALAVRA</h3>
 
-        <div className="picture">{completeGame.emoji}</div>
+            <div className="picture">{completeGame.emoji}</div>
 
-        <div className="pattern">
-          {displayedCompletePattern}
-        </div>
+            <div className="pattern">
+              {displayedCompletePattern}
+            </div>
 
-        <button
-          className="audio"
-          onClick={() =>
-            speak(
-              `COMPLETE A PALAVRA ${completeGame.word}. ESCOLHA A LETRA QUE ESTÁ FALTANDO.`
-            )
-          }
-        >
-          <Volume2 />
-          OUVIR
-        </button>
-
-        <div className="answers">
-          {completeGame.options.map((letter) => (
             <button
-              key={letter}
-              onClick={() => chooseCompleteLetter(letter)}
+              className="audio"
+              onClick={() =>
+                speak(
+                  `COMPLETE A PALAVRA ${completeGame.word}. ESCOLHA A LETRA QUE ESTÁ FALTANDO.`
+                )
+              }
             >
-              {letter}
+              <Volume2 />
+              OUVIR
             </button>
-          ))}
-        </div>
 
-        {completeMessage && (
-          <p
-            className={
-              completeMessage.includes('MUITO BEM')
-                ? 'good'
-                : 'hint'
-            }
-          >
-            {completeMessage}
-          </p>
+            <div className="answers">
+              {completeGame.options.map((letter) => (
+                <button
+                  key={letter}
+                  onClick={() => chooseCompleteLetter(letter)}
+                >
+                  {letter}
+                </button>
+              ))}
+            </div>
+
+            {completeMessage && (
+              <p
+                className={
+                  completeMessage.includes('MUITO BEM')
+                    ? 'good'
+                    : 'hint'
+                }
+              >
+                {completeMessage}
+              </p>
+            )}
+          </div>
+        ) : (
+          <LockedGameCard
+            number={4}
+            title="COMPLETE A PALAVRA"
+            emoji="🧩"
+          />
         )}
       </div>
 
@@ -3281,8 +3374,8 @@ function Games({
         </div>
 
         <p className="instruction">
-          CONTE, SOME OU SUBTRAIA. VOCÊ TEM 25 SEGUNDOS.
-          SE ERRAR, O JOGO VAI DAR UMA DICA.
+          CONTE, SOME OU SUBTRAIA. VOCÊ TEM 25 SEGUNDOS. SE ERRAR, O
+          JOGO VAI DAR UMA DICA.
         </p>
 
         {mathGame.visual && (
@@ -3334,8 +3427,12 @@ function Games({
           <div className="math-visual-help">
             <p>{mathVisualHelp.text}</p>
             <div className="math-object-row">{mathVisualHelp.top}</div>
-            <div className="math-operation-symbol">{mathVisualHelp.symbol}</div>
-            <div className="math-object-row">{mathVisualHelp.bottom}</div>
+            <div className="math-operation-symbol">
+              {mathVisualHelp.symbol}
+            </div>
+            <div className="math-object-row">
+              {mathVisualHelp.bottom}
+            </div>
           </div>
         )}
       </div>
@@ -3555,7 +3652,7 @@ function TeacherArea({
   onAddStudent: (
     studentName: string,
     studentAvatar: string
-  ) => Promise<boolean>;
+  ) => boolean;
   onDeleteStudent: (id: string) => void;
   onViewStudent: (student: Student) => void;
   onChangeLevel: (
@@ -3733,6 +3830,9 @@ function TeacherArea({
 
           <div className="grid" style={{ marginTop: '24px' }}>
             {students.map((student) => {
+              const learning = loadLearningState(student.id);
+              const level = getCurrentLevel(learning);
+
               return (
                 <div className="module" key={student.id}>
                   <span style={{ fontSize: '54px' }}>
@@ -3742,7 +3842,9 @@ function TeacherArea({
                   <b>{student.name}</b>
 
                   <small>
-                    Clique em "Ver progresso" para consultar os dados atualizados.
+                    {learning.assessmentCompleted
+                      ? `Nível: ${level}`
+                      : 'Sondagem pendente'}
                   </small>
 
                   <button
