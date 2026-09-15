@@ -5,6 +5,12 @@
       "nome": "rinaldi",
       "avatar": "👦",
       "criadoEm": "2026-09-10T16:07:42.028Z"
+    },
+    {
+      "id": "1789488339031-pdyp1p",
+      "nome": "fabiola",
+      "avatar": "👧",
+      "criadoEm": "2026-09-15T16:05:39.032Z"
     }
   ],
   "progresso": {
@@ -18,7 +24,8 @@
       "streak": 1,
       "badges": [],
       "history": []
-    }
+    },
+    "1789488339031-pdyp1p": null
   },
   "aprendizagem": {
     "1789056462028-4ckudr": {
@@ -26,11 +33,11 @@
       "assessmentScore": 2,
       "initialLevel": "Silábico sem valor",
       "suggestedLevel": "Silábico sem valor",
-      "manualLevel": "Garatuja",
+      "manualLevel": "Silábico sem valor",
       "correctAnswers": 0,
       "wrongAnswers": 0,
       "totalAttempts": 0,
-      "updatedAt": "2026-09-15T13:03:34.943Z",
+      "updatedAt": "2026-09-15T13:54:49.751Z",
       "levelHistory": [
         {
           "level": "Silábico sem valor",
@@ -41,8 +48,35 @@
           "level": "Garatuja",
           "source": "professor",
           "at": "2026-09-15T13:03:34.943Z"
+        },
+        {
+          "level": "Silábico-Alfabético",
+          "source": "professor",
+          "at": "2026-09-15T13:54:14.031Z"
+        },
+        {
+          "level": "Pré-silábico",
+          "source": "professor",
+          "at": "2026-09-15T13:54:48.361Z"
+        },
+        {
+          "level": "Silábico sem valor",
+          "source": "professor",
+          "at": "2026-09-15T13:54:49.751Z"
         }
       ]
+    },
+    "1789488339031-pdyp1p": {
+      "assessmentCompleted": false,
+      "assessmentScore": 0,
+      "initialLevel": null,
+      "suggestedLevel": null,
+      "manualLevel": null,
+      "correctAnswers": 0,
+      "wrongAnswers": 0,
+      "totalAttempts": 0,
+      "updatedAt": null,
+      "levelHistory": []
     }
   }
 }

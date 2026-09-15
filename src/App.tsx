@@ -160,7 +160,7 @@ type LearningState = {
 };
 
 const STUDENTS_KEY = 'alfabetizacao-students';
-const API_URL = 'http://10.137.11.230:3001/api';
+const API_URL = `http://${window.location.hostname}:3001/api`;
 const TEACHER_PASSWORD_KEY = 'alfabetizacao-teacher-password';
 const DEFAULT_TEACHER_PASSWORD = '1234';
 
