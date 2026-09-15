@@ -160,7 +160,7 @@ type LearningState = {
 };
 
 const STUDENTS_KEY = 'alfabetizacao-students';
-const API_URL = `http://${window.location.hostname}:3001/api`;
+const API_URL = 'http://10.137.11.230:3001/api';
 const TEACHER_PASSWORD_KEY = 'alfabetizacao-teacher-password';
 const DEFAULT_TEACHER_PASSWORD = '1234';
 
@@ -172,8 +172,8 @@ const saveTeacherPassword = (password: string) => {
   localStorage.setItem(TEACHER_PASSWORD_KEY, password);
 };
 
-const cloneInitialProgress = (): Progress => ''
-JSON.parse(JSON.stringify(initialProgress)) as Progress;
+const cloneInitialProgress = (): Progress =>
+  JSON.parse(JSON.stringify(initialProgress)) as Progress;
 
 const initialLearningState: LearningState = {
   assessmentCompleted: false,
@@ -3667,17 +3667,20 @@ function TeacherArea({
 
   const avatars = ['🧒', '👧', '👦', '🧑', '👩', '👨'];
 
-  const add = () => {
-    const ok = onAddStudent(studentName, studentAvatar);
+  const add = async () => {
+  const ok = await onAddStudent(
+    studentName,
+    studentAvatar
+  );
 
-    if (!ok) {
-      setMessage('Digite o nome do aluno.');
-      return;
-    }
+  if (!ok) {
+    setMessage('Não foi possível cadastrar o aluno.');
+    return;
+  }
 
-    setStudentName('');
-    setMessage('Aluno cadastrado com sucesso! ✅');
-  };
+  setStudentName('');
+  setMessage('Aluno cadastrado com sucesso! ✅');
+};
 
   const updatePassword = () => {
     const result = onChangePassword(
