@@ -139,6 +139,43 @@ type Student = {
   avatar: string;
   createdAt: string;
 };
+const isPhotoAvatar = (avatar: string) =>
+  avatar.startsWith('data:image/');
+
+function StudentAvatar({
+  avatar,
+  size = 72
+}: {
+  avatar: string;
+  size?: number;
+}) {
+  if (isPhotoAvatar(avatar)) {
+    return (
+      <img
+        src={avatar}
+        alt="Foto do aluno"
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          borderRadius: '50%',
+          objectFit: 'cover',
+          border: '4px solid white',
+          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)'
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      style={{
+        fontSize: `${size}px`
+      }}
+    >
+      {avatar}
+    </span>
+  );
+}
 
 type LevelHistoryEntry = {
   level: Level;
@@ -804,6 +841,7 @@ export default function App() {
     label: string,
     score = 10,
     kind?: 'letters' | 'syllables' | 'words',
+    item?: string,
     affectsLiteracy = true
   ) => {
     if (affectsLiteracy) {
@@ -811,20 +849,76 @@ export default function App() {
     }
 
     setProgress((p) => {
-      let next = { ...p };
+      let next: Progress = {
+        ...p,
 
-      if (kind) {
-        const max =
-          kind === 'letters'
-            ? 26
-            : kind === 'syllables'
-              ? 75
-              : 25;
+        practicedLetters: Array.isArray(p.practicedLetters)
+          ? [...p.practicedLetters]
+          : [],
 
-        next = {
-          ...next,
-          [kind]: Math.min((next as any)[kind] + 1, max)
-        };
+        practicedSyllables: Array.isArray(p.practicedSyllables)
+          ? [...p.practicedSyllables]
+          : [],
+
+        practicedWords: Array.isArray(p.practicedWords)
+          ? [...p.practicedWords]
+          : []
+      };
+
+      if (kind && item) {
+        const normalizedItem =
+          item.trim().toUpperCase();
+
+        if (kind === 'letters') {
+          const alreadyPracticed =
+            next.practicedLetters.includes(
+              normalizedItem
+            );
+
+          if (!alreadyPracticed) {
+            next.practicedLetters = [
+              ...next.practicedLetters,
+              normalizedItem
+            ];
+          }
+
+          next.letters =
+            next.practicedLetters.length;
+        }
+
+        if (kind === 'syllables') {
+          const alreadyPracticed =
+            next.practicedSyllables.includes(
+              normalizedItem
+            );
+
+          if (!alreadyPracticed) {
+            next.practicedSyllables = [
+              ...next.practicedSyllables,
+              normalizedItem
+            ];
+          }
+
+          next.syllables =
+            next.practicedSyllables.length;
+        }
+
+        if (kind === 'words') {
+          const alreadyPracticed =
+            next.practicedWords.includes(
+              normalizedItem
+            );
+
+          if (!alreadyPracticed) {
+            next.practicedWords = [
+              ...next.practicedWords,
+              normalizedItem
+            ];
+          }
+
+          next.words =
+            next.practicedWords.length;
+        }
       }
 
       return reward(next, label, score);
@@ -1051,8 +1145,13 @@ export default function App() {
           <Quiz
             title="🧩 Forme a palavra"
             questions={wordQuestions}
-            complete={() =>
-              complete('Formação de palavras', 15, 'words')
+            complete={(word) =>
+              complete(
+                `Formação da palavra ${word}`,
+                15,
+                'words',
+                word
+              )
             }
             wrong={wrong}
           />
@@ -1060,8 +1159,13 @@ export default function App() {
 
         {page === 'reading' && (
           <Reading
-            complete={() =>
-              complete('Leitura', 15, 'words')
+            complete={(word) =>
+              complete(
+                `Leitura da palavra ${word}`,
+                15,
+                'words',
+                word
+              )
             }
             wrong={wrong}
           />
@@ -1069,8 +1173,13 @@ export default function App() {
 
         {page === 'writing' && (
           <Writing
-            complete={() =>
-              complete('Prática de escrita', 12)
+            complete={(letter) =>
+              complete(
+                `Escrita da letra ${letter}`,
+                12,
+                'letters',
+                letter
+              )
             }
             wrong={wrong}
           />
@@ -1082,7 +1191,13 @@ export default function App() {
             complete={complete}
             wrong={wrong}
             completeMath={(label, score) =>
-              complete(label, score, undefined, false)
+              complete(
+                label,
+                score,
+                undefined,
+                undefined,
+                false
+              )
             }
             wrongMath={() => wrong(false)}
           />
@@ -1091,12 +1206,17 @@ export default function App() {
         {page === 'math' && (
           <MathLearningGame
             complete={() =>
-              complete('Matemática', 12, undefined, false)
+              complete(
+                'Matemática',
+                12,
+                undefined,
+                undefined,
+                false
+              )
             }
             wrong={() => wrong(false)}
           />
         )}
-
         {page === 'achievements' && (
           <Achievements progress={progress} />
         )}
@@ -1404,9 +1524,10 @@ function StudentSelection({
                   cursor: 'pointer'
                 }}
               >
-                <span style={{ fontSize: '72px' }}>
-                  {student.avatar}
-                </span>
+                <StudentAvatar
+                  avatar={student.avatar}
+                  size={96}
+                />
 
                 <b style={{ fontSize: '25px' }}>
                   {student.name}
@@ -1659,8 +1780,22 @@ function HomePage({
   return (
     <section className="hero">
       <div>
-        <div className="hello">
-          Olá, {name}! {avatar}
+        <div
+          className="hello"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}
+        >
+          <StudentAvatar
+            avatar={avatar}
+            size={52}
+          />
+
+          <span>
+            Olá, {name}!
+          </span>
         </div>
 
         <h1>
@@ -1719,9 +1854,16 @@ function HomePage({
       </div>
 
       <div className="heroArt">
-        <div className="mascot">{avatar}</div>
+        <StudentAvatar
+          avatar={avatar}
+          size={130}
+        />
+
         <div className="floating">A B C</div>
-        <div className="floating">⭐ {progress.stars}</div>
+
+        <div className="floating">
+          ⭐ {progress.stars}
+        </div>
       </div>
     </section>
   );
@@ -1893,7 +2035,8 @@ function Letters({
   complete: (
     label: string,
     score?: number,
-    kind?: 'letters'
+    kind?: 'letters',
+    item?: string
   ) => void;
   wrong: () => void;
 }) {
@@ -1925,7 +2068,12 @@ function Letters({
   };
 
   const check = () => {
-    complete(`Letra ${upper}`, 8, 'letters');
+    complete(
+      `Letra ${upper}`,
+      8,
+      'letters',
+      upper
+    );
     setMessage(`Muito bem! ${upper} de ${word} 🎉`);
     speak(`${upper}. ${word}.`);
   };
@@ -1984,7 +2132,8 @@ function Syllables({
   complete: (
     label: string,
     score?: number,
-    kind?: 'syllables'
+    kind?: 'syllables',
+    item?: string
   ) => void;
   wrong: () => void;
 }) {
@@ -2027,7 +2176,12 @@ function Syllables({
         <button
           className="primary"
           onClick={() => {
-            complete(`Sílaba ${current}`, 10, 'syllables');
+            complete(
+              `Sílaba ${current}`,
+              10,
+              'syllables',
+              current
+            );
             setMessage(`Muito bem! Você praticou ${current} 🌟`);
             setTimeout(next, 900);
           }}
@@ -2077,7 +2231,7 @@ function Quiz({
 }: {
   title: string;
   questions: readonly WordQuestion[];
-  complete: () => void;
+  complete: (word: string) => void;
   wrong: () => void;
 }) {
   const [index, setIndex] = useState(0);
@@ -2106,7 +2260,7 @@ function Quiz({
     if (option === question.answer) {
       setMessage(`Parabéns! 🎉 Você formou ${question.word}!`);
       speak(question.word);
-      complete();
+      complete(question.word);
 
       setTimeout(() => {
         setMessage('');
@@ -2165,7 +2319,7 @@ function Reading({
   complete,
   wrong
 }: {
-  complete: () => void;
+  complete: (word: string) => void;
   wrong: () => void;
 }) {
   const [index, setIndex] = useState(0);
@@ -2187,7 +2341,7 @@ function Reading({
     if (option === question.answer) {
       setMessage(`Muito bem! É ${question.answer} 🎉`);
       speak(question.answer);
-      complete();
+      complete(question.answer);
 
       setTimeout(() => {
         setMessage('');
@@ -2242,7 +2396,7 @@ function Writing({
   complete,
   wrong
 }: {
-  complete: () => void;
+  complete: (letter: string) => void;
   wrong: () => void;
 }) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -2290,7 +2444,7 @@ function Writing({
 
     setMessage(`🎉 Muito bem! Você escreveu a letra ${upper}!`);
     speak(`Muito bem! Letra ${upper}.`);
-    complete();
+    complete(upper);
 
     setTimeout(nextLetter, 1000);
   };
@@ -2829,7 +2983,8 @@ function Games({
   complete: (
     label: string,
     score?: number,
-    kind?: 'letters' | 'syllables' | 'words'
+    kind?: 'letters' | 'syllables' | 'words',
+    item?: string
   ) => void;
 
   wrong: () => void;
@@ -3017,7 +3172,12 @@ function Games({
         `ACHOU A LETRA ${target}! ${example ? `${target} DE ${example}!` : ''} 🎉`
       );
 
-      complete('Jogo: encontre a letra', 10, 'letters');
+      complete(
+        `Jogo: encontre a letra ${target}`,
+        10,
+        'letters',
+        target
+      );
 
       setTimeout(() => {
         setLetterMessage('');
@@ -3036,7 +3196,12 @@ function Games({
       );
 
       speak(combine.answer);
-      complete('Jogo: combine imagem e palavra', 12, 'words');
+      complete(
+        `Jogo: imagem e palavra ${combine.answer}`,
+        12,
+        'words',
+        combine.answer
+      );
 
       setTimeout(() => {
         setCombineMessage('');
@@ -3061,7 +3226,12 @@ function Games({
     if (order.join('') === organizeWord) {
       setOrganizeMessage(`${organizeWord} FORMADA! 🌟`);
       speak(organizeWord);
-      complete('Jogo: organize a palavra', 15, 'words');
+      complete(
+        `Jogo: complete ${completeGame.word}`,
+        12,
+        'words',
+        completeGame.word
+      );
 
       setTimeout(() => {
         setOrder([]);
@@ -3534,7 +3704,17 @@ function Profile({
 
       <div className="gameCard">
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '82px' }}>{avatar}</div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center'
+            }}
+          >
+            <StudentAvatar
+              avatar={avatar}
+              size={120}
+            />
+          </div><div style={{ fontSize: '82px' }}>{avatar}</div>
           <h2>{name}</h2>
 
           <button
@@ -3666,6 +3846,69 @@ function TeacherArea({
   const [passwordMessage, setPasswordMessage] = useState('');
 
   const avatars = ['🧒', '👧', '👦', '🧑', '👩', '👨'];
+
+  const handleStudentPhoto = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setMessage('Escolha uma imagem válida.');
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const image = new Image();
+
+      image.onload = () => {
+        const maxSize = 400;
+
+        let width = image.width;
+        let height = image.height;
+
+        if (width > height && width > maxSize) {
+          height = (height / width) * maxSize;
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = (width / height) * maxSize;
+          height = maxSize;
+        }
+
+        const canvas = document.createElement('canvas');
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) return;
+
+        ctx.drawImage(
+          image,
+          0,
+          0,
+          width,
+          height
+        );
+
+        const resizedImage = canvas.toDataURL(
+          'image/jpeg',
+          0.75
+        );
+
+        setStudentAvatar(resizedImage);
+        setMessage('Foto selecionada ✅');
+      };
+
+      image.src = reader.result as string;
+    };
+
+    reader.readAsDataURL(file);
+  };
 
   const add = async () => {
     const ok = await onAddStudent(
@@ -3855,6 +4098,68 @@ function TeacherArea({
                 </button>
               ))}
             </div>
+            <div
+              style={{
+                margin: '18px 0',
+                padding: '18px',
+                borderRadius: '16px',
+                background: '#f8fafc',
+                border: '1px dashed #cbd5e1',
+                textAlign: 'center'
+              }}
+            >
+              <p
+                style={{
+                  marginTop: 0,
+                  fontWeight: 700
+                }}
+              >
+                📷 Foto do aluno
+              </p>
+
+              <p
+                style={{
+                  fontSize: '13px',
+                  opacity: 0.7
+                }}
+              >
+                A foto ajuda a criança a reconhecer o próprio perfil.
+              </p>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  marginBottom: '14px'
+                }}
+              >
+                <StudentAvatar
+                  avatar={studentAvatar}
+                  size={90}
+                />
+              </div>
+
+              <label
+                style={{
+                  display: 'inline-block',
+                  padding: '10px 18px',
+                  borderRadius: '12px',
+                  background: '#2563eb',
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                📁 Escolher foto
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleStudentPhoto}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
 
             <button className="primary" onClick={add}>
               Cadastrar aluno
@@ -3921,9 +4226,10 @@ function TeacherArea({
             {students.map((student) => {
               return (
                 <div className="module" key={student.id}>
-                  <span style={{ fontSize: '54px' }}>
-                    {student.avatar}
-                  </span>
+                  <StudentAvatar
+                    avatar={student.avatar}
+                    size={72}
+                  />
 
                   <b>{student.name}</b>
 
@@ -3979,10 +4285,23 @@ function TeacherArea({
                 className="gameCard"
                 style={{ marginTop: '28px' }}
               >
-                <h2>
-                  {selectedStudent.avatar}{' '}
-                  {selectedStudent.name}
-                </h2>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    marginBottom: '18px'
+                  }}
+                >
+                  <StudentAvatar
+                    avatar={selectedStudent.avatar}
+                    size={72}
+                  />
+
+                  <h2 style={{ margin: 0 }}>
+                    {selectedStudent.name}
+                  </h2>
+                </div>
 
                 <div className="grid mini">
                   <Stat
@@ -4218,7 +4537,12 @@ function TeacherArea({
                                   marginTop: '2px'
                                 }}
                               >
-                                {skill.current} de {skill.max} concluídos
+                                {skill.current} de {skill.max}{' '}
+                                {skill.label === 'Letras'
+                                  ? 'letras diferentes'
+                                  : skill.label === 'Sílabas'
+                                    ? 'sílabas diferentes'
+                                    : 'palavras diferentes'}
                               </div>
                             </div>
                           </div>
@@ -4460,7 +4784,7 @@ function TeacherArea({
                   )}
                 </div>
 
-                
+
               </div>
             )}
         </section>
