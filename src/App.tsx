@@ -3668,19 +3668,19 @@ function TeacherArea({
   const avatars = ['🧒', '👧', '👦', '🧑', '👩', '👨'];
 
   const add = async () => {
-  const ok = await onAddStudent(
-    studentName,
-    studentAvatar
-  );
+    const ok = await onAddStudent(
+      studentName,
+      studentAvatar
+    );
 
-  if (!ok) {
-    setMessage('Não foi possível cadastrar o aluno.');
-    return;
-  }
+    if (!ok) {
+      setMessage('Não foi possível cadastrar o aluno.');
+      return;
+    }
 
-  setStudentName('');
-  setMessage('Aluno cadastrado com sucesso! ✅');
-};
+    setStudentName('');
+    setMessage('Aluno cadastrado com sucesso! ✅');
+  };
 
   const updatePassword = () => {
     const result = onChangePassword(
@@ -3708,6 +3708,12 @@ function TeacherArea({
   const currentLevel = selectedLearning
     ? getCurrentLevel(selectedLearning)
     : null;
+
+  const lastUpdate =
+    selectedLearning?.updatedAt
+      ? new Date(selectedLearning.updatedAt).toLocaleString('pt-BR')
+      : 'Nenhuma atividade registrada';
+
   const getPedagogicalRecommendation = () => {
     if (!selectedLearning || !selectedProgress || !currentLevel) {
       return {
@@ -3773,6 +3779,29 @@ function TeacherArea({
   };
 
   const recommendation = getPedagogicalRecommendation();
+  const skillProgress = [
+    {
+      label: 'Letras',
+      icon: '🔤',
+      value: pct(selectedProgress?.letters ?? 0, 26),
+      current: selectedProgress?.letters ?? 0,
+      max: 26
+    },
+    {
+      label: 'Sílabas',
+      icon: '🧩',
+      value: pct(selectedProgress?.syllables ?? 0, 75),
+      current: selectedProgress?.syllables ?? 0,
+      max: 75
+    },
+    {
+      label: 'Palavras',
+      icon: '📝',
+      value: pct(selectedProgress?.words ?? 0, 25),
+      current: selectedProgress?.words ?? 0,
+      max: 25
+    }
+  ];
 
   return (
     <div className="app teacher-area" style={{ minHeight: '100vh' }}>
@@ -3983,6 +4012,11 @@ function TeacherArea({
                     label="Taxa de acerto"
                     value={`${accuracy}%`}
                   />
+                  <Stat
+                    icon="🕒"
+                    label="Última atualização"
+                    value={lastUpdate}
+                  />
                 </div>
 
                 <div
@@ -4088,6 +4122,164 @@ function TeacherArea({
                     A avaliação e a decisão pedagógica continuam sendo
                     responsabilidade do professor.
                   </p>
+                </div>
+
+                <div
+                  className="gameCard"
+                  style={{
+                    marginTop: '20px',
+                    padding: '24px'
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '12px',
+                      flexWrap: 'wrap',
+                      marginBottom: '22px'
+                    }}
+                  >
+                    <div>
+                      <h3 style={{ marginBottom: '4px' }}>
+                        📊 Progresso por habilidade
+                      </h3>
+
+                      <p
+                        style={{
+                          margin: 0,
+                          opacity: 0.7,
+                          fontSize: '14px'
+                        }}
+                      >
+                        Acompanhe o desenvolvimento do aluno nas principais áreas.
+                      </p>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '999px',
+                        background: '#f1f5f9',
+                        fontWeight: 700,
+                        fontSize: '13px'
+                      }}
+                    >
+                      🎯 VISÃO GERAL
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: '22px'
+                    }}
+                  >
+                    {skillProgress.map((skill) => (
+                      <div key={skill.label}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '8px',
+                            gap: '10px'
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '9px'
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: '22px'
+                              }}
+                            >
+                              {skill.icon}
+                            </span>
+
+                            <div>
+                              <b
+                                style={{
+                                  fontSize: '16px'
+                                }}
+                              >
+                                {skill.label}
+                              </b>
+
+                              <div
+                                style={{
+                                  fontSize: '12px',
+                                  opacity: 0.65,
+                                  marginTop: '2px'
+                                }}
+                              >
+                                {skill.current} de {skill.max} concluídos
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              minWidth: '62px',
+                              textAlign: 'center',
+                              padding: '6px 10px',
+                              borderRadius: '10px',
+                              background: '#f8fafc',
+                              fontWeight: 800,
+                              fontSize: '15px'
+                            }}
+                          >
+                            {skill.value}%
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '18px',
+                            background: '#e9eef5',
+                            borderRadius: '999px',
+                            overflow: 'hidden',
+                            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)'
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${skill.value}%`,
+                              height: '100%',
+                              borderRadius: '999px',
+                              background:
+                                skill.value >= 75
+                                  ? 'linear-gradient(90deg, #16a34a, #22c55e)'
+                                  : skill.value >= 40
+                                    ? 'linear-gradient(90deg, #2563eb, #38bdf8)'
+                                    : 'linear-gradient(90deg, #f59e0b, #facc15)',
+                              transition: 'width 0.6s ease'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '22px',
+                      padding: '14px 16px',
+                      borderRadius: '14px',
+                      background: '#f8fafc',
+                      fontSize: '13px',
+                      lineHeight: 1.5
+                    }}
+                  >
+                    <b>💡 Leitura do gráfico:</b>{' '}
+                    quanto maior a barra, maior o progresso registrado naquela habilidade.
+                  </div>
                 </div>
 
                 <div
@@ -4268,54 +4460,7 @@ function TeacherArea({
                   )}
                 </div>
 
-                <div
-                  className="gameCard"
-                  style={{ marginTop: '20px' }}
-                >
-                  <h3>📈 Progresso por habilidade</h3>
-
-                  <p>
-                    Letras: {selectedProgress.letters}/26
-                  </p>
-                  <div className="progressBar">
-                    <span
-                      style={{
-                        width: `${pct(
-                          selectedProgress.letters,
-                          26
-                        )}%`
-                      }}
-                    />
-                  </div>
-
-                  <p>
-                    Sílabas: {selectedProgress.syllables}/75
-                  </p>
-                  <div className="progressBar">
-                    <span
-                      style={{
-                        width: `${pct(
-                          selectedProgress.syllables,
-                          75
-                        )}%`
-                      }}
-                    />
-                  </div>
-
-                  <p>
-                    Palavras: {selectedProgress.words}/25
-                  </p>
-                  <div className="progressBar">
-                    <span
-                      style={{
-                        width: `${pct(
-                          selectedProgress.words,
-                          25
-                        )}%`
-                      }}
-                    />
-                  </div>
-                </div>
+                
               </div>
             )}
         </section>
