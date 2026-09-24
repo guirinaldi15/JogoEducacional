@@ -617,7 +617,13 @@ export default function App() {
           })
         );
 
-        setStudents(alunosConvertidos);
+        setStudents(
+  alunosConvertidos.sort((a, b) =>
+    a.name.localeCompare(b.name, 'pt-BR', {
+      sensitivity: 'base'
+    })
+  )
+);
       } catch (error) {
         console.error('Erro ao buscar alunos:', error);
       }
@@ -686,10 +692,13 @@ export default function App() {
           new Date().toISOString()
       };
 
-      setStudents((current) => [
-        ...current,
-        newStudent
-      ]);
+      setStudents((current) =>
+  [...current, newStudent].sort((a, b) =>
+    a.name.localeCompare(b.name, 'pt-BR', {
+      sensitivity: 'base'
+    })
+  )
+);
 
       await Promise.all([
         saveStudentProgress(newStudent.id, cloneInitialProgress()),
@@ -1265,6 +1274,8 @@ export default function App() {
         {page === 'games' && (
           <Games
             learning={learning}
+            progress={progress}
+            setProgress={setProgress}
             complete={complete}
             wrong={wrong}
             completeMath={(label, score) =>
@@ -1282,6 +1293,8 @@ export default function App() {
 
         {page === 'math' && (
           <MathLearningGame
+            progress={progress}
+            setProgress={setProgress}
             complete={() =>
               complete(
                 'Matemática',
@@ -2313,15 +2326,20 @@ function Quiz({
 
   const question = questions[index];
 
+  const shuffledWordOptions = useMemo(
+    () => shuffle([...question.options]),
+    [index, question]
+  );
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       speak(
-        `OLHE A IMAGEM E ESCOLHA A LETRA QUE COMPLETA A PALAVRA ${question.word}. OPÇÕES: ${question.options.join(', ')}`
+        `OLHE A IMAGEM E ESCOLHA A LETRA QUE COMPLETA A PALAVRA ${question.word}. OPÇÕES: ${shuffledWordOptions.join(', ')}`
       );
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [index]);
+  }, [index, shuffledWordOptions, question.word]);
 
   const displayedPattern = selectedLetter
     ? question.pattern.replace('_', selectedLetter)
@@ -2361,7 +2379,7 @@ function Quiz({
       <div className="pattern">{displayedPattern}</div>
 
       <div className="answers">
-        {question.options.map((option) => (
+        {shuffledWordOptions.map((option) => (
           <button
             key={option}
             onClick={() => choose(option)}
@@ -2400,15 +2418,20 @@ function Reading({
 
   const question = readingQuestions[index];
 
+  const shuffledReadingOptions = useMemo(
+    () => shuffle([...question.options]),
+    [index, question]
+  );
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       speak(
-        `OLHE A IMAGEM E ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${question.options.join(', ')}`
+        `OLHE A IMAGEM E ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${shuffledReadingOptions.join(', ')}`
       );
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [index]);
+  }, [index, shuffledReadingOptions]);
 
   const choose = (option: string) => {
     if (option === question.answer) {
@@ -2438,7 +2461,7 @@ function Reading({
       <div className="picture">{question.emoji}</div>
 
       <div className="answers words">
-        {question.options.map((option) => (
+        {shuffledReadingOptions.map((option) => (
           <button
             key={option}
             onClick={() => choose(option)}
@@ -2634,33 +2657,254 @@ const getMathVisualHint = (game: MathGame) => {
   return null;
 };
 
+function pickUnusedIndex<T>(
+  items: T[],
+  usedIds: string[],
+  getId: (item: T, index: number) => string,
+  currentIndex?: number
+) {
+  if (items.length <= 1) return 0;
+
+  const used = new Set(usedIds ?? []);
+
+  const unusedIndexes = items
+    .map((item, index) => ({
+      index,
+      id: getId(item, index)
+    }))
+    .filter(
+      (entry) =>
+        !used.has(entry.id) &&
+        entry.index !== currentIndex
+    )
+    .map((entry) => entry.index);
+
+  const availableIndexes =
+    unusedIndexes.length > 0
+      ? unusedIndexes
+      : items
+          .map((_, index) => index)
+          .filter((index) => index !== currentIndex);
+
+  return availableIndexes[
+    Math.floor(Math.random() * availableIndexes.length)
+  ];
+}
+
+function arrangeOptions<T>(
+  options: T[],
+  correctAnswer: T,
+  seed: number
+): T[] {
+  const uniqueOptions = Array.from(new Set(options));
+  const wrongOptions = uniqueOptions.filter(
+    (option) => option !== correctAnswer
+  );
+
+  const shuffledWrong = shuffle(wrongOptions);
+  const result = shuffledWrong.slice(0, Math.max(0, uniqueOptions.length - 1));
+  const position = uniqueOptions.length > 0
+    ? seed % uniqueOptions.length
+    : 0;
+
+  result.splice(position, 0, correctAnswer);
+  return result;
+}
+
+function pickUnusedIndexAvoiding<T>(
+  items: T[],
+  usedIds: string[],
+  getId: (item: T, index: number) => string,
+  getWord: (item: T, index: number) => string,
+  excludedWords: string[],
+  currentIndex?: number
+) {
+  if (items.length <= 1) return 0;
+
+  const used = new Set(usedIds ?? []);
+  const excluded = new Set(
+    excludedWords
+      .filter(Boolean)
+      .map((word) => word.trim().toUpperCase())
+  );
+
+  const candidates = items
+    .map((item, index) => ({
+      index,
+      id: getId(item, index),
+      word: getWord(item, index).trim().toUpperCase()
+    }))
+    .filter(
+      (entry) =>
+        !used.has(entry.id) &&
+        !excluded.has(entry.word) &&
+        entry.index !== currentIndex
+    )
+    .map((entry) => entry.index);
+
+  if (candidates.length > 0) {
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  const fallback = items
+    .map((item, index) => ({
+      index,
+      word: getWord(item, index).trim().toUpperCase()
+    }))
+    .filter(
+      (entry) =>
+        !excluded.has(entry.word) &&
+        entry.index !== currentIndex
+    )
+    .map((entry) => entry.index);
+
+  const pool =
+    fallback.length > 0
+      ? fallback
+      : items
+          .map((_, index) => index)
+          .filter((index) => index !== currentIndex);
+
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+
+function pickUnusedCompleteIndex(
+  items: typeof completeWordGames,
+  usedIds: string[],
+  excludedWords: string[],
+  excludedAnswers: string[],
+  currentIndex?: number
+) {
+  if (items.length <= 1) return 0;
+
+  const used = new Set(usedIds ?? []);
+  const excludedWordSet = new Set(
+    excludedWords.filter(Boolean).map((word) => word.trim().toUpperCase())
+  );
+  const excludedAnswerSet = new Set(
+    excludedAnswers.filter(Boolean).map((answer) => answer.trim().toUpperCase())
+  );
+
+  const candidates = items
+    .map((item, index) => ({
+      index,
+      id: item.id,
+      word: item.word.trim().toUpperCase(),
+      answer: item.answer.trim().toUpperCase()
+    }))
+    .filter((entry) =>
+      !used.has(entry.id) &&
+      !excludedWordSet.has(entry.word) &&
+      !excludedAnswerSet.has(entry.answer) &&
+      entry.index !== currentIndex
+    )
+    .map((entry) => entry.index);
+
+  if (candidates.length > 0) {
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  const fallback = items
+    .map((item, index) => ({
+      index,
+      word: item.word.trim().toUpperCase(),
+      answer: item.answer.trim().toUpperCase()
+    }))
+    .filter((entry) =>
+      !excludedWordSet.has(entry.word) &&
+      !excludedAnswerSet.has(entry.answer) &&
+      entry.index !== currentIndex
+    )
+    .map((entry) => entry.index);
+
+  if (fallback.length > 0) {
+    return fallback[Math.floor(Math.random() * fallback.length)];
+  }
+
+  return pickUnusedIndex(
+    items,
+    usedIds,
+    (item) => item.id,
+    currentIndex
+  );
+}
+
 function MathLearningGame({
+  progress,
+  setProgress,
   complete,
   wrong
 }: {
+  progress: Progress;
+  setProgress: React.Dispatch<React.SetStateAction<Progress>>;
   complete: () => void;
   wrong: () => void;
 }) {
   const QUESTION_TIME = 25;
 
-  const [index, setIndex] = useState(
-    Math.floor(Math.random() * mathGames.length)
+  const [index, setIndex] = useState(() =>
+    pickUnusedIndex(
+      mathGames,
+      progress.usedMathExercises ?? [],
+      (game, gameIndex) =>
+        game.id ?? `math-${gameIndex}-${game.question}`
+    )
   );
+
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
   const [message, setMessage] = useState('');
   const [help, setHelp] = useState('');
-  const [visualHelp, setVisualHelp] = useState<ReturnType<typeof getMathVisualHint>>(null);
+  const [visualHelp, setVisualHelp] =
+    useState<ReturnType<typeof getMathVisualHint>>(null);
   const [locked, setLocked] = useState(false);
   const [wrongCount, setWrongCount] = useState(0);
 
   const game = mathGames[index];
 
-  const nextQuestion = () => {
-    let next = index;
+  const mathExerciseId = (
+    gameToIdentify: MathGame,
+    gameIndex: number
+  ) =>
+    gameToIdentify.id ??
+    `math-${gameIndex}-${gameToIdentify.question}`;
 
-    while (mathGames.length > 1 && next === index) {
-      next = Math.floor(Math.random() * mathGames.length);
-    }
+  const recordMathExercise = (
+    exerciseId: string,
+    usedWithCurrent: string[]
+  ) => {
+    setProgress((current) => ({
+      ...current,
+      usedMathExercises:
+        usedWithCurrent.length >= mathGames.length
+          ? []
+          : Array.from(
+              new Set([
+                ...(current.usedMathExercises ?? []),
+                exerciseId
+              ])
+            )
+    }));
+  };
+
+  const nextQuestion = () => {
+    const currentId = mathExerciseId(game, index);
+
+    const usedWithCurrent = Array.from(
+      new Set([
+        ...(progress.usedMathExercises ?? []),
+        currentId
+      ])
+    );
+
+    const next = pickUnusedIndex(
+      mathGames,
+      usedWithCurrent,
+      mathExerciseId,
+      index
+    );
+
+    recordMathExercise(currentId, usedWithCurrent);
 
     setIndex(next);
     setTimeLeft(QUESTION_TIME);
@@ -2694,21 +2938,29 @@ function MathLearningGame({
     if (timeLeft <= 0) {
       setLocked(true);
       wrong();
-      setMessage('O TEMPO ACABOU! VAMOS PARA A PRÓXIMA QUESTÃO ⏱️');
-      speak('O TEMPO ACABOU. VAMOS PARA A PRÓXIMA QUESTÃO.');
+
+      setMessage(
+        'O TEMPO ACABOU! VAMOS PARA A PRÓXIMA QUESTÃO ⏱️'
+      );
+
+      speak(
+        'O TEMPO ACABOU. VAMOS PARA A PRÓXIMA QUESTÃO.'
+      );
 
       const nextTimer = window.setTimeout(() => {
         nextQuestion();
       }, 1200);
 
-      return () => window.clearTimeout(nextTimer);
+      return () =>
+        window.clearTimeout(nextTimer);
     }
 
     const timer = window.setTimeout(() => {
       setTimeLeft((current) => current - 1);
     }, 1000);
 
-    return () => window.clearTimeout(timer);
+    return () =>
+      window.clearTimeout(timer);
   }, [timeLeft, locked, index]);
 
   const choose = (answer: number) => {
@@ -2716,9 +2968,17 @@ function MathLearningGame({
 
     if (answer === game.answer) {
       setLocked(true);
-      setMessage(`MUITO BEM! A RESPOSTA É ${game.answer}! 🎉`);
+
+      setMessage(
+        `MUITO BEM! A RESPOSTA É ${game.answer}! 🎉`
+      );
+
       setHelp('');
-      speak(`MUITO BEM! A RESPOSTA É ${game.answer}.`);
+
+      speak(
+        `MUITO BEM! A RESPOSTA É ${game.answer}.`
+      );
+
       complete();
 
       setTimeout(nextQuestion, 1400);
@@ -2726,23 +2986,38 @@ function MathLearningGame({
     }
 
     wrong();
-    const newWrongCount = wrongCount + 1;
+
+    const newWrongCount =
+      wrongCount + 1;
+
     setWrongCount(newWrongCount);
 
-    const hint = getMathHelp(game);
-    const visual = getMathVisualHint(game);
+    const hint =
+      getMathHelp(game);
 
-    setMessage('QUASE! OLHE A DICA VISUAL E TENTE DE NOVO 😊');
+    const visual =
+      getMathVisualHint(game);
+
+    setMessage(
+      'QUASE! OLHE A DICA VISUAL E TENTE DE NOVO 😊'
+    );
+
     setHelp(
       newWrongCount >= 2
         ? `${hint} CONTE DEVAGAR, APONTANDO PARA CADA FIGURA.`
         : hint
     );
+
     setVisualHelp(visual);
+
     speak(`QUASE. ${hint}`);
   };
 
-  const timePercent = Math.max(0, (timeLeft / QUESTION_TIME) * 100);
+  const timePercent =
+    Math.max(
+      0,
+      (timeLeft / QUESTION_TIME) * 100
+    );
 
   return (
     <section>
@@ -2751,8 +3026,13 @@ function MathLearningGame({
       <div className="gameCard math-learning-card">
         <div className="math-top-row">
           <div>
-            <span className="math-game-badge">DESAFIO MATEMÁTICO</span>
-            <h3>CONTE, SOME E SUBTRAIA</h3>
+            <span className="math-game-badge">
+              DESAFIO MATEMÁTICO
+            </span>
+
+            <h3>
+              CONTE, SOME E SUBTRAIA
+            </h3>
           </div>
 
           <div
@@ -2769,7 +3049,9 @@ function MathLearningGame({
         <div className="math-time-track">
           <div
             className="math-time-fill"
-            style={{ width: `${timePercent}%` }}
+            style={{
+              width: `${timePercent}%`
+            }}
           />
         </div>
 
@@ -2779,10 +3061,14 @@ function MathLearningGame({
         </p>
 
         {game.visual && (
-          <div className="math-visual">{game.visual}</div>
+          <div className="math-visual">
+            {game.visual}
+          </div>
         )}
 
-        <div className="math-question">{game.question}</div>
+        <div className="math-question">
+          {game.question}
+        </div>
 
         <button
           className="audio"
@@ -2801,7 +3087,9 @@ function MathLearningGame({
             <button
               key={option}
               disabled={locked}
-              onClick={() => choose(option)}
+              onClick={() =>
+                choose(option)
+              }
             >
               {option}
             </button>
@@ -2811,12 +3099,15 @@ function MathLearningGame({
         {message && (
           <div
             className={
-              message.includes('MUITO BEM')
+              message.includes(
+                'MUITO BEM'
+              )
                 ? 'math-feedback success'
                 : 'math-feedback help'
             }
           >
             <b>{message}</b>
+
             {help && <p>{help}</p>}
           </div>
         )}
@@ -2824,13 +3115,25 @@ function MathLearningGame({
         {visualHelp && (
           <div className="math-visual-help">
             <p>{visualHelp.text}</p>
-            <div className="math-object-row">{visualHelp.top}</div>
-            <div className="math-operation-symbol">{visualHelp.symbol}</div>
-            <div className="math-object-row">{visualHelp.bottom}</div>
+
+            <div className="math-object-row">
+              {visualHelp.top}
+            </div>
+
+            <div className="math-operation-symbol">
+              {visualHelp.symbol}
+            </div>
+
+            <div className="math-object-row">
+              {visualHelp.bottom}
+            </div>
           </div>
         )}
 
-        <button className="soft" onClick={nextQuestion}>
+        <button
+          className="soft"
+          onClick={nextQuestion}
+        >
           🔄 OUTRA QUESTÃO
         </button>
       </div>
@@ -2840,12 +3143,16 @@ function MathLearningGame({
 
 function Games({
   learning,
+  progress,
+  setProgress,
   complete,
   wrong,
   completeMath,
   wrongMath
 }: {
   learning: LearningState;
+  progress: Progress;
+  setProgress: React.Dispatch<React.SetStateAction<Progress>>;
 
   complete: (
     label: string,
@@ -2877,25 +3184,54 @@ function Games({
   const [letterOptions, setLetterOptions] = useState<string[]>([]);
   const [letterMessage, setLetterMessage] = useState('');
 
-  const [combineIndex, setCombineIndex] = useState(
-    Math.floor(Math.random() * combineGames.length)
+  const [combineIndex, setCombineIndex] = useState(() =>
+    pickUnusedIndex(
+      combineGames,
+      progress.usedCombineExercises ?? [],
+      (game) => game.id
+    )
   );
   const [combineMessage, setCombineMessage] = useState('');
+  const [combineAnswerPosition, setCombineAnswerPosition] = useState(
+    () => Math.floor(Math.random() * 3)
+  );
 
-  const [wordIndex, setWordIndex] = useState(
-    Math.floor(Math.random() * organizeWords.length)
+  const [wordIndex, setWordIndex] = useState(() =>
+    pickUnusedIndexAvoiding(
+      organizeWords,
+      progress.usedOrganizeExercises ?? [],
+      (word) => `organize-${word}`,
+      (word) => word,
+      [combineGames[combineIndex]?.answer ?? '']
+    )
   );
   const [order, setOrder] = useState<string[]>([]);
   const [organizeMessage, setOrganizeMessage] = useState('');
 
-  const [completeIndex, setCompleteIndex] = useState(
-    Math.floor(Math.random() * completeWordGames.length)
+  const [completeIndex, setCompleteIndex] = useState(() =>
+    pickUnusedCompleteIndex(
+      completeWordGames,
+      progress.usedCompleteExercises ?? [],
+      [
+        combineGames[combineIndex]?.answer ?? '',
+        organizeWords[wordIndex] ?? ''
+      ],
+      []
+    )
   );
   const [completeLetter, setCompleteLetter] = useState('');
   const [completeMessage, setCompleteMessage] = useState('');
+  const [completeAnswerPosition, setCompleteAnswerPosition] = useState(
+    () => Math.floor(Math.random() * 3)
+  );
 
-  const [mathIndex, setMathIndex] = useState(
-    Math.floor(Math.random() * mathGames.length)
+  const [mathIndex, setMathIndex] = useState(() =>
+    pickUnusedIndex(
+      mathGames,
+      progress.usedMathExercises ?? [],
+      (game, gameIndex) =>
+        game.id ?? `math-${gameIndex}-${game.question}`
+    )
   );
   const [mathMessage, setMathMessage] = useState('');
   const [mathHelp, setMathHelp] = useState('');
@@ -2904,29 +3240,108 @@ function Games({
   const [mathLocked, setMathLocked] = useState(false);
   const [mathWrongCount, setMathWrongCount] = useState(0);
   const [mathStarted, setMathStarted] = useState(false);
+  const [mathAnswerPosition, setMathAnswerPosition] = useState(
+    () => Math.floor(Math.random() * 3)
+  );
 
   const combine = combineGames[combineIndex];
   const organizeWord = organizeWords[wordIndex];
   const completeGame = completeWordGames[completeIndex];
   const mathGame = mathGames[mathIndex];
 
-  const nextRandomIndex = (length: number, current: number) => {
-    if (length <= 1) return 0;
+  // Sempre que mudar a palavra do Jogo 4, muda também a posição
+  // da alternativa correta. Assim a resposta não fica presa
+  // no primeiro botão.
+  useEffect(() => {
+    setCompleteAnswerPosition((current) => (current + 1) % 3);
+  }, [completeIndex]);
 
-    let next = current;
+  // Distribui a resposta correta entre os botões A, B e C.
+  // A posição muda conforme a questão, evitando que a correta
+  // fique sempre no mesmo botão.
+  const combineOptions = useMemo(
+    () => arrangeOptions(
+      combine.options,
+      combine.answer,
+      combineAnswerPosition
+    ),
+    [combineIndex, combineAnswerPosition]
+  );
 
-    while (next === current) {
-      next = Math.floor(Math.random() * length);
-    }
+  const completeOptions = useMemo(
+    () => arrangeOptions(
+      completeGame.options,
+      completeGame.answer,
+      completeAnswerPosition
+    ),
+    [completeIndex, completeAnswerPosition]
+  );
 
-    return next;
+  const mathOptions = useMemo(
+    () => arrangeOptions(
+      mathGame.options,
+      mathGame.answer,
+      mathAnswerPosition
+    ),
+    [mathIndex, mathAnswerPosition]
+  );
+
+  const recordUsedExercise = (
+    key:
+      | 'usedCombineExercises'
+      | 'usedOrganizeExercises'
+      | 'usedCompleteExercises'
+      | 'usedMathExercises',
+    exerciseId: string,
+    usedWithCurrent: string[],
+    totalExercises: number
+  ) => {
+    setProgress((current) => ({
+      ...current,
+      [key]:
+        usedWithCurrent.length >= totalExercises
+          ? []
+          : Array.from(
+              new Set([
+                ...(current[key] ?? []),
+                exerciseId
+              ])
+            )
+    }));
   };
 
+  const mathExerciseId = (
+    game: MathGame,
+    gameIndex: number
+  ) =>
+    game.id ??
+    `math-${gameIndex}-${game.question}`;
+
   const refreshLetterGame = (newTarget?: string) => {
+    const practiced =
+      progress.practicedLetters ?? [];
+
+    const unusedLetters =
+      findLetterPool.filter(
+        (letter) =>
+          !practiced.includes(letter) &&
+          letter !== target
+      );
+
+    const fallbackLetters =
+      findLetterPool.filter(
+        (letter) => letter !== target
+      );
+
+    const pool =
+      unusedLetters.length > 0
+        ? unusedLetters
+        : fallbackLetters;
+
     const chosen =
       newTarget ??
-      findLetterPool[
-      Math.floor(Math.random() * findLetterPool.length)
+      pool[
+        Math.floor(Math.random() * pool.length)
       ];
 
     const distractors = shuffle(
@@ -2957,7 +3372,7 @@ function Games({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       speak(
-        `OLHE A IMAGEM E ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combine.options.join(', ')}`
+        `OLHE A IMAGEM E ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combineOptions.join(', ')}`
       );
     }, 450);
 
@@ -2996,7 +3411,7 @@ function Games({
 
     const timer = window.setTimeout(() => {
       speak(
-        `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathGame.options.join(', ')}`
+        `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathOptions.join(', ')}`
       );
     }, 450);
 
@@ -3017,9 +3432,34 @@ function Games({
       speak('O TEMPO ACABOU. VAMOS PARA A PRÓXIMA QUESTÃO.');
 
       const nextTimer = window.setTimeout(() => {
-        setMathIndex((current) =>
-          nextRandomIndex(mathGames.length, current)
+        const currentId =
+          mathExerciseId(mathGame, mathIndex);
+
+        const usedWithCurrent =
+          Array.from(
+            new Set([
+              ...(progress.usedMathExercises ?? []),
+              currentId
+            ])
+          );
+
+        const nextIndex =
+          pickUnusedIndex(
+            mathGames,
+            usedWithCurrent,
+            mathExerciseId,
+            mathIndex
+          );
+
+        recordUsedExercise(
+          'usedMathExercises',
+          currentId,
+          usedWithCurrent,
+          mathGames.length
         );
+
+        setMathAnswerPosition((current) => (current + 1) % 3);
+        setMathIndex(nextIndex);
       }, 1200);
 
       return () => window.clearTimeout(nextTimer);
@@ -3073,11 +3513,38 @@ function Games({
         combine.answer
       );
 
+      const currentId =
+        combine.id;
+
+      const usedWithCurrent =
+        Array.from(
+          new Set([
+            ...(progress.usedCombineExercises ?? []),
+            currentId
+          ])
+        );
+
+      const nextIndex =
+        pickUnusedIndexAvoiding(
+          combineGames,
+          usedWithCurrent,
+          (game) => game.id,
+          (game) => game.answer,
+          [organizeWord, completeGame.word],
+          combineIndex
+        );
+
+      recordUsedExercise(
+        'usedCombineExercises',
+        currentId,
+        usedWithCurrent,
+        combineGames.length
+      );
+
       setTimeout(() => {
         setCombineMessage('');
-        setCombineIndex((current) =>
-          nextRandomIndex(combineGames.length, current)
-        );
+        setCombineAnswerPosition((current) => (current + 1) % 3);
+        setCombineIndex(nextIndex);
       }, 1100);
     } else {
       wrong();
@@ -3094,8 +3561,73 @@ function Games({
 
   const checkWord = () => {
     if (order.join('') === organizeWord) {
-      setOrganizeMessage(`${organizeWord} FORMADA! 🌟`);
+      setOrganizeMessage(
+        `${organizeWord} FORMADA! 🌟`
+      );
+
       speak(organizeWord);
+
+      complete(
+        `Jogo: organize ${organizeWord}`,
+        12,
+        'words',
+        organizeWord
+      );
+
+      const currentId =
+        `organize-${organizeWord}`;
+
+      const usedWithCurrent =
+        Array.from(
+          new Set([
+            ...(progress.usedOrganizeExercises ?? []),
+            currentId
+          ])
+        );
+
+      const nextIndex =
+        pickUnusedIndexAvoiding(
+          organizeWords,
+          usedWithCurrent,
+          (word) => `organize-${word}`,
+          (word) => word,
+          [combine.answer, completeGame.word],
+          wordIndex
+        );
+
+      recordUsedExercise(
+        'usedOrganizeExercises',
+        currentId,
+        usedWithCurrent,
+        organizeWords.length
+      );
+
+      setTimeout(() => {
+        setOrder([]);
+        setOrganizeMessage('');
+        setWordIndex(nextIndex);
+      }, 1100);
+    } else {
+      wrong();
+
+      setOrganizeMessage(
+        'QUASE! LIMPE E TENTE OUTRA VEZ 😊'
+      );
+    }
+  };
+
+  const chooseCompleteLetter = (
+    letter: string
+  ) => {
+    setCompleteLetter(letter);
+
+    if (letter === completeGame.answer) {
+      setCompleteMessage(
+        `MUITO BEM! VOCÊ FORMOU ${completeGame.word}! 🎉`
+      );
+
+      speak(completeGame.word);
+
       complete(
         `Jogo: complete ${completeGame.word}`,
         12,
@@ -3103,39 +3635,44 @@ function Games({
         completeGame.word
       );
 
-      setTimeout(() => {
-        setOrder([]);
-        setOrganizeMessage('');
-        setWordIndex((current) =>
-          nextRandomIndex(organizeWords.length, current)
+      const currentId =
+        completeGame.id;
+
+      const usedWithCurrent =
+        Array.from(
+          new Set([
+            ...(progress.usedCompleteExercises ?? []),
+            currentId
+          ])
         );
-      }, 1100);
-    } else {
-      wrong();
-      setOrganizeMessage('QUASE! LIMPE E TENTE OUTRA VEZ 😊');
-    }
-  };
 
-  const chooseCompleteLetter = (letter: string) => {
-    setCompleteLetter(letter);
+      const nextIndex =
+        pickUnusedCompleteIndex(
+          completeWordGames,
+          usedWithCurrent,
+          [combine.answer, organizeWord],
+          [completeGame.answer],
+          completeIndex
+        );
 
-    if (letter === completeGame.answer) {
-      setCompleteMessage(
-        `MUITO BEM! VOCÊ FORMOU ${completeGame.word}! 🎉`
+      recordUsedExercise(
+        'usedCompleteExercises',
+        currentId,
+        usedWithCurrent,
+        completeWordGames.length
       );
-      speak(completeGame.word);
-      complete('Jogo: complete a palavra', 12, 'words');
 
       setTimeout(() => {
         setCompleteLetter('');
         setCompleteMessage('');
-        setCompleteIndex((current) =>
-          nextRandomIndex(completeWordGames.length, current)
-        );
+        setCompleteIndex(nextIndex);
       }, 1100);
     } else {
       wrong();
-      setCompleteMessage('QUASE! TENTE OUTRA LETRA 😊');
+
+      setCompleteMessage(
+        'QUASE! TENTE OUTRA LETRA 😊'
+      );
     }
   };
 
@@ -3149,7 +3686,7 @@ function Games({
     setMathStarted(true);
 
     speak(
-      `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathGame.options.join(', ')}`
+      `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathOptions.join(', ')}`
     );
   };
 
@@ -3165,10 +3702,38 @@ function Games({
       speak(`MUITO BEM! A RESPOSTA É ${mathGame.answer}.`);
       completeMath('Jogo de matemática', 12);
 
-      setTimeout(() => {
-        setMathIndex((current) =>
-          nextRandomIndex(mathGames.length, current)
+      const currentId =
+        mathExerciseId(
+          mathGame,
+          mathIndex
         );
+
+      const usedWithCurrent =
+        Array.from(
+          new Set([
+            ...(progress.usedMathExercises ?? []),
+            currentId
+          ])
+        );
+
+      const nextIndex =
+        pickUnusedIndex(
+          mathGames,
+          usedWithCurrent,
+          mathExerciseId,
+          mathIndex
+        );
+
+      recordUsedExercise(
+        'usedMathExercises',
+        currentId,
+        usedWithCurrent,
+        mathGames.length
+      );
+
+      setTimeout(() => {
+        setMathAnswerPosition((current) => (current + 1) % 3);
+        setMathIndex(nextIndex);
       }, 1400);
     } else {
       wrongMath();
@@ -3261,7 +3826,7 @@ function Games({
             className="audio"
             onClick={() =>
               speak(
-                `ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combine.options.join(', ')}`
+                `ESCOLHA A PALAVRA CORRETA. OPÇÕES: ${combineOptions.join(', ')}`
               )
             }
           >
@@ -3270,7 +3835,7 @@ function Games({
           </button>
 
           <div className="answers words">
-            {combine.options.map((word) => (
+            {combineOptions.map((word) => (
               <button
                 key={word}
                 onClick={() => chooseCombine(word)}
@@ -3365,7 +3930,7 @@ function Games({
         </button>
 
         <div className="answers">
-          {completeGame.options.map((letter) => (
+          {completeOptions.map((letter) => (
             <button
               key={letter}
               onClick={() => chooseCompleteLetter(letter)}
@@ -3512,7 +4077,7 @@ function Games({
           className="audio"
           onClick={() =>
             speak(
-              `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathGame.options.join(', ')}`
+              `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathOptions.join(', ')}`
             )
           }
         >
@@ -3521,7 +4086,7 @@ function Games({
         </button>
 
         <div className="answers math-answers">
-          {mathGame.options.map((option) => (
+          {mathOptions.map((option) => (
             <button
               key={option}
               disabled={mathLocked}
