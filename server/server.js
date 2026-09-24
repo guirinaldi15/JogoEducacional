@@ -101,6 +101,50 @@ app.post('/api/alunos', (req, res) => {
   res.status(201).json(novoAluno);
 });
 
+app.put('/api/alunos/:id', (req, res) => {
+  const dados = carregarDados();
+
+  const aluno = dados.alunos.find(
+    item => String(item.id) === String(req.params.id)
+  );
+
+  if (!aluno) {
+    return res.status(404).json({
+      mensagem: 'Aluno não encontrado.'
+    });
+  }
+
+  if (req.body.nome !== undefined || req.body.name !== undefined) {
+    const novoNome = String(
+      req.body.nome ?? req.body.name
+    ).trim();
+
+    if (!novoNome) {
+      return res.status(400).json({
+        mensagem: 'O nome do aluno não pode ficar vazio.'
+      });
+    }
+
+    aluno.nome = novoNome;
+  }
+
+  if (req.body.avatar !== undefined) {
+    const novoAvatar = String(req.body.avatar);
+
+    if (!novoAvatar.trim()) {
+      return res.status(400).json({
+        mensagem: 'O avatar do aluno não pode ficar vazio.'
+      });
+    }
+
+    aluno.avatar = novoAvatar;
+  }
+
+  salvarDados(dados);
+
+  res.json(aluno);
+});
+
 app.delete('/api/alunos/:id', (req, res) => {
   const dados = carregarDados();
 

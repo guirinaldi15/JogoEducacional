@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 import {
   Home,
   BookOpen,
@@ -694,6 +697,69 @@ export default function App() {
     }
   };
 
+  const updateStudentAvatar = async (
+    studentId: string,
+    newAvatar: string
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `${API_URL}/alunos/${studentId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            avatar: newAvatar
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar foto do aluno');
+      }
+
+      const alunoServidor = await response.json();
+
+      const updatedStudent: Student = {
+        id: String(alunoServidor.id ?? studentId),
+        name:
+          alunoServidor.name ??
+          alunoServidor.nome ??
+          students.find((student) => student.id === studentId)?.name ??
+          '',
+        avatar:
+          alunoServidor.avatar ??
+          newAvatar,
+        createdAt:
+          alunoServidor.createdAt ??
+          alunoServidor.criadoEm ??
+          students.find((student) => student.id === studentId)?.createdAt ??
+          new Date().toISOString()
+      };
+
+      setStudents((current) =>
+        current.map((student) =>
+          student.id === studentId
+            ? updatedStudent
+            : student
+        )
+      );
+
+      if (activeStudentId === studentId) {
+        setAvatar(updatedStudent.avatar);
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        'Erro ao atualizar foto do aluno:',
+        error
+      );
+      return false;
+    }
+  };
+
   const deleteStudent = async (id: string) => {
     try {
       const response = await fetch(
@@ -1040,6 +1106,7 @@ export default function App() {
         selectedLearning={selectedLearning}
         onAddStudent={addStudent}
         onDeleteStudent={deleteStudent}
+        onUpdateStudentAvatar={updateStudentAvatar}
         onViewStudent={(student) =>
           setTeacherSelectedId(student.id)
         }
@@ -3714,7 +3781,7 @@ function Profile({
               avatar={avatar}
               size={120}
             />
-          </div><div style={{ fontSize: '82px' }}>{avatar}</div>
+          </div>
           <h2>{name}</h2>
 
           <button
@@ -3811,6 +3878,7 @@ function TeacherArea({
   selectedLearning,
   onAddStudent,
   onDeleteStudent,
+  onUpdateStudentAvatar,
   onViewStudent,
   onChangeLevel,
   onClearActivityHistory,
@@ -3826,6 +3894,10 @@ function TeacherArea({
     studentAvatar: string
   ) => Promise<boolean>;
   onDeleteStudent: (id: string) => void;
+  onUpdateStudentAvatar: (
+    studentId: string,
+    newAvatar: string
+  ) => Promise<boolean>;
   onViewStudent: (student: Student) => void;
   onChangeLevel: (
     studentId: string,
@@ -3844,70 +3916,128 @@ function TeacherArea({
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
+  const [photoUpdateMessage, setPhotoUpdateMessage] = useState('');
+  const [updatingPhoto, setUpdatingPhoto] = useState(false);
 
   const avatars = ['🧒', '👧', '👦', '🧑', '👩', '👨'];
 
-  const handleStudentPhoto = (
+  const resizeStudentPhoto = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) {
+        reject(new Error('Escolha uma imagem válida.'));
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onerror = () =>
+        reject(new Error('Não foi possível ler a imagem.'));
+
+      reader.onload = () => {
+        const image = new Image();
+
+        image.onerror = () =>
+          reject(new Error('Não foi possível carregar a imagem.'));
+
+        image.onload = () => {
+          const maxSize = 400;
+
+          let width = image.width;
+          let height = image.height;
+
+          if (width > height && width > maxSize) {
+            height = (height / width) * maxSize;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width / height) * maxSize;
+            height = maxSize;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(width);
+          canvas.height = Math.round(height);
+
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            reject(new Error('Não foi possível processar a imagem.'));
+            return;
+          }
+
+          ctx.drawImage(
+            image,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+
+          resolve(
+            canvas.toDataURL('image/jpeg', 0.75)
+          );
+        };
+
+        image.src = reader.result as string;
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+  const handleStudentPhoto = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setMessage('Escolha uma imagem válida.');
-      return;
+    try {
+      const resizedImage = await resizeStudentPhoto(file);
+      setStudentAvatar(resizedImage);
+      setMessage('Foto selecionada ✅');
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível processar a imagem.'
+      );
+    } finally {
+      event.target.value = '';
     }
+  };
 
-    const reader = new FileReader();
+  const handleExistingStudentPhoto = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    studentId: string
+  ) => {
+    const file = event.target.files?.[0];
 
-    reader.onload = () => {
-      const image = new Image();
+    if (!file) return;
 
-      image.onload = () => {
-        const maxSize = 400;
+    setPhotoUpdateMessage('');
+    setUpdatingPhoto(true);
 
-        let width = image.width;
-        let height = image.height;
+    try {
+      const resizedImage = await resizeStudentPhoto(file);
+      const ok = await onUpdateStudentAvatar(
+        studentId,
+        resizedImage
+      );
 
-        if (width > height && width > maxSize) {
-          height = (height / width) * maxSize;
-          width = maxSize;
-        } else if (height > maxSize) {
-          width = (width / height) * maxSize;
-          height = maxSize;
-        }
-
-        const canvas = document.createElement('canvas');
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-
-        if (!ctx) return;
-
-        ctx.drawImage(
-          image,
-          0,
-          0,
-          width,
-          height
-        );
-
-        const resizedImage = canvas.toDataURL(
-          'image/jpeg',
-          0.75
-        );
-
-        setStudentAvatar(resizedImage);
-        setMessage('Foto selecionada ✅');
-      };
-
-      image.src = reader.result as string;
-    };
-
-    reader.readAsDataURL(file);
+      setPhotoUpdateMessage(
+        ok
+          ? 'Foto do aluno atualizada com sucesso! ✅'
+          : 'Não foi possível atualizar a foto do aluno.'
+      );
+    } catch (error) {
+      setPhotoUpdateMessage(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível processar a imagem.'
+      );
+    } finally {
+      setUpdatingPhoto(false);
+      event.target.value = '';
+    }
   };
 
   const add = async () => {
@@ -3922,6 +4052,7 @@ function TeacherArea({
     }
 
     setStudentName('');
+    setStudentAvatar('🧒');
     setMessage('Aluno cadastrado com sucesso! ✅');
   };
 
@@ -4022,6 +4153,551 @@ function TeacherArea({
   };
 
   const recommendation = getPedagogicalRecommendation();
+  const generateStudentReportPDF = () => {
+  if (
+    !selectedStudent ||
+    !selectedProgress ||
+    !selectedLearning
+  ) {
+    setMessage(
+      'Selecione um aluno antes de gerar o relatório.'
+    );
+    return;
+  }
+
+  const doc = new jsPDF();
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15;
+
+  const level =
+    getCurrentLevel(selectedLearning) ??
+    'Não definido';
+
+  const reportDate =
+    new Date().toLocaleDateString('pt-BR');
+
+  const lastUpdateReport =
+    selectedLearning.updatedAt
+      ? new Date(
+          selectedLearning.updatedAt
+        ).toLocaleString('pt-BR')
+      : 'Nenhuma atividade registrada';
+
+  const sourceLabel = (
+    source: LevelHistoryEntry['source']
+  ) => {
+    if (source === 'sondagem') {
+      return 'Sondagem inicial';
+    }
+
+    if (source === 'professor') {
+      return 'Professor';
+    }
+
+    return 'Sistema';
+  };
+
+  /*
+   * CABEÇALHO
+   */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text(
+    'ALFABETIZA+',
+    pageWidth / 2,
+    18,
+    { align: 'center' }
+  );
+
+  doc.setFontSize(14);
+  doc.text(
+    'RELATÓRIO PEDAGÓGICO INDIVIDUAL',
+    pageWidth / 2,
+    27,
+    { align: 'center' }
+  );
+
+  doc.setDrawColor(200);
+  doc.line(
+    margin,
+    32,
+    pageWidth - margin,
+    32
+  );
+
+  /*
+   * FOTO DO ALUNO
+   */
+  let studentTextX = margin;
+  let startY = 43;
+
+  if (
+    selectedStudent.avatar &&
+    selectedStudent.avatar.startsWith(
+      'data:image/'
+    )
+  ) {
+    try {
+      const imageType =
+        selectedStudent.avatar.includes(
+          'image/png'
+        )
+          ? 'PNG'
+          : 'JPEG';
+
+      doc.addImage(
+        selectedStudent.avatar,
+        imageType,
+        margin,
+        40,
+        28,
+        28
+      );
+
+      studentTextX = 48;
+    } catch (error) {
+      console.error(
+        'Erro ao adicionar foto ao PDF:',
+        error
+      );
+    }
+  }
+
+  /*
+   * DADOS PRINCIPAIS
+   */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+
+  doc.text(
+    selectedStudent.name,
+    studentTextX,
+    startY
+  );
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+
+  doc.text(
+    `Data do relatório: ${reportDate}`,
+    studentTextX,
+    startY + 8
+  );
+
+  doc.text(
+    `Última atualização: ${lastUpdateReport}`,
+    studentTextX,
+    startY + 14
+  );
+
+  /*
+   * RESUMO
+   */
+  let y = 80;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text(
+    '1. RESUMO DO ALUNO',
+    margin,
+    y
+  );
+
+  y += 6;
+
+  autoTable(doc, {
+    startY: y,
+    theme: 'grid',
+    head: [
+      ['Indicador', 'Resultado']
+    ],
+    body: [
+      [
+        'Nível inicial',
+        selectedLearning.initialLevel ??
+          'Não definido'
+      ],
+      [
+        'Nível atual',
+        level
+      ],
+      [
+        'Pontuação na sondagem',
+        `${selectedLearning.assessmentScore} de 6`
+      ],
+      [
+        'Atividades realizadas',
+        String(selectedProgress.activities)
+      ],
+      [
+        'Taxa de acerto',
+        `${accuracy}%`
+      ],
+      [
+        'Respostas corretas',
+        String(
+          selectedLearning.correctAnswers
+        )
+      ],
+      [
+        'Respostas incorretas',
+        String(
+          selectedLearning.wrongAnswers
+        )
+      ],
+      [
+        'Pontos',
+        String(selectedProgress.points)
+      ],
+      [
+        'Estrelas',
+        String(selectedProgress.stars)
+      ]
+    ],
+    styles: {
+      fontSize: 9
+    },
+    headStyles: {
+      fontStyle: 'bold'
+    }
+  });
+
+  y =
+    (doc as any).lastAutoTable.finalY +
+    12;
+
+  /*
+   * PROGRESSO
+   */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text(
+    '2. PROGRESSO DE APRENDIZAGEM',
+    margin,
+    y
+  );
+
+  y += 6;
+
+  autoTable(doc, {
+    startY: y,
+    theme: 'grid',
+    head: [
+      [
+        'Habilidade',
+        'Progresso',
+        'Percentual'
+      ]
+    ],
+    body: [
+      [
+        'Letras diferentes',
+        `${selectedProgress.letters} de 26`,
+        `${pct(
+          selectedProgress.letters,
+          26
+        )}%`
+      ],
+      [
+        'Sílabas diferentes',
+        `${selectedProgress.syllables} de 75`,
+        `${pct(
+          selectedProgress.syllables,
+          75
+        )}%`
+      ],
+      [
+        'Palavras diferentes',
+        `${selectedProgress.words} de 25`,
+        `${pct(
+          selectedProgress.words,
+          25
+        )}%`
+      ]
+    ],
+    styles: {
+      fontSize: 9
+    }
+  });
+
+  y =
+    (doc as any).lastAutoTable.finalY +
+    12;
+
+  /*
+   * EVOLUÇÃO DOS NÍVEIS
+   */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text(
+    '3. EVOLUÇÃO DO NÍVEL DE ESCRITA',
+    margin,
+    y
+  );
+
+  y += 6;
+
+  const levelHistory =
+    selectedLearning.levelHistory ?? [];
+
+  if (levelHistory.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      theme: 'grid',
+      head: [
+        [
+          'Data',
+          'Nível',
+          'Origem'
+        ]
+      ],
+      body: levelHistory.map(
+        (entry) => [
+          new Date(
+            entry.at
+          ).toLocaleDateString(
+            'pt-BR'
+          ),
+          entry.level,
+          sourceLabel(entry.source)
+        ]
+      ),
+      styles: {
+        fontSize: 8
+      }
+    });
+
+    y =
+      (doc as any)
+        .lastAutoTable.finalY +
+      12;
+  } else {
+    doc.setFont(
+      'helvetica',
+      'normal'
+    );
+    doc.setFontSize(10);
+    doc.text(
+      'Ainda não há registros de evolução.',
+      margin,
+      y + 4
+    );
+
+    y += 14;
+  }
+
+  /*
+   * NOVA PÁGINA SE PRECISAR
+   */
+  if (y > 240) {
+    doc.addPage();
+    y = 20;
+  }
+
+  /*
+   * HISTÓRICO DE ATIVIDADES
+   */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text(
+    '4. ATIVIDADES RECENTES',
+    margin,
+    y
+  );
+
+  y += 6;
+
+  const activityHistory =
+    selectedProgress.history ?? [];
+
+  if (activityHistory.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      theme: 'striped',
+      head: [
+        [
+          'Data',
+          'Atividade',
+          'Pontos'
+        ]
+      ],
+      body: activityHistory
+        .slice(0, 15)
+        .map((activity) => [
+          new Date(
+            activity.at
+          ).toLocaleDateString(
+            'pt-BR'
+          ),
+          activity.label,
+          String(activity.score)
+        ]),
+      styles: {
+        fontSize: 8
+      }
+    });
+
+    y =
+      (doc as any)
+        .lastAutoTable.finalY +
+      12;
+  } else {
+    doc.setFont(
+      'helvetica',
+      'normal'
+    );
+    doc.setFontSize(10);
+
+    doc.text(
+      'Nenhuma atividade registrada.',
+      margin,
+      y + 4
+    );
+
+    y += 14;
+  }
+
+  /*
+   * GARANTE ESPAÇO PARA RECOMENDAÇÃO
+   */
+  if (y > 235) {
+    doc.addPage();
+    y = 20;
+  }
+
+  /*
+   * RECOMENDAÇÃO PEDAGÓGICA
+   */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+
+  doc.text(
+    '5. RECOMENDAÇÃO PEDAGÓGICA',
+    margin,
+    y
+  );
+
+  y += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+
+  doc.text(
+    recommendation.title,
+    margin,
+    y
+  );
+
+  y += 7;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+
+  const recommendationText =
+    doc.splitTextToSize(
+      recommendation.text,
+      pageWidth - margin * 2
+    );
+
+  doc.text(
+    recommendationText,
+    margin,
+    y
+  );
+
+  y +=
+    recommendationText.length * 5 +
+    10;
+
+  /*
+   * OBSERVAÇÃO
+   */
+  if (y > 255) {
+    doc.addPage();
+    y = 20;
+  }
+
+  doc.setDrawColor(200);
+  doc.line(
+    margin,
+    y,
+    pageWidth - margin,
+    y
+  );
+
+  y += 8;
+
+  doc.setFont(
+    'helvetica',
+    'italic'
+  );
+  doc.setFontSize(8);
+
+  const observation =
+    'Este relatório apresenta indicadores de acompanhamento pedagógico gerados a partir das atividades realizadas no Alfabetiza+. A análise e a definição do nível de escrita permanecem sob responsabilidade do professor.';
+
+  doc.text(
+    doc.splitTextToSize(
+      observation,
+      pageWidth - margin * 2
+    ),
+    margin,
+    y
+  );
+
+  /*
+   * RODAPÉ
+   */
+  const totalPages =
+    doc.getNumberOfPages();
+
+  for (
+    let pageNumber = 1;
+    pageNumber <= totalPages;
+    pageNumber++
+  ) {
+    doc.setPage(pageNumber);
+
+    doc.setFont(
+      'helvetica',
+      'normal'
+    );
+    doc.setFontSize(8);
+
+    doc.text(
+      `Alfabetiza+ • Página ${pageNumber} de ${totalPages}`,
+      pageWidth / 2,
+      290,
+      {
+        align: 'center'
+      }
+    );
+  }
+
+  /*
+   * DOWNLOAD
+   */
+  const safeName =
+    selectedStudent.name
+      .normalize('NFD')
+      .replace(
+        /[\u0300-\u036f]/g,
+        ''
+      )
+      .replace(
+        /[^a-zA-Z0-9]+/g,
+        '_'
+      )
+      .replace(
+        /^_+|_+$/g,
+        ''
+      );
+
+  doc.save(
+    `relatorio_${safeName || 'aluno'}.pdf`
+  );
+};
   const skillProgress = [
     {
       label: 'Letras',
@@ -4298,10 +4974,71 @@ function TeacherArea({
                     size={72}
                   />
 
-                  <h2 style={{ margin: 0 }}>
-                    {selectedStudent.name}
-                  </h2>
+                  <div>
+                    <h2 style={{ margin: 0 }}>
+                      {selectedStudent.name}
+                    </h2>
+
+                    <label
+                      className="soft"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginTop: '10px',
+                        cursor: updatingPhoto
+                          ? 'wait'
+                          : 'pointer',
+                        opacity: updatingPhoto ? 0.65 : 1
+                      }}
+                    >
+                      📷 {updatingPhoto
+                        ? 'Atualizando foto...'
+                        : 'Alterar foto'}
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={updatingPhoto}
+                        onChange={(event) =>
+                          handleExistingStudentPhoto(
+                            event,
+                            selectedStudent.id
+                          )
+                        }
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </div>
                 </div>
+
+                <div
+        style={{
+          display: 'flex',
+          gap: '12px',
+          flexWrap: 'wrap',
+          marginBottom: '20px'
+        }}
+      >
+        <button
+          className="primary"
+          onClick={generateStudentReportPDF}
+        >
+          📄 Exportar relatório PDF
+        </button>
+      </div>
+
+                {photoUpdateMessage && (
+                  <p
+                    className={
+                      photoUpdateMessage.includes('sucesso')
+                        ? 'good'
+                        : 'hint'
+                    }
+                  >
+                    {photoUpdateMessage}
+                  </p>
+                )}
 
                 <div className="grid mini">
                   <Stat
