@@ -31,6 +31,16 @@ import {
 } from './data/content';
 
 import {
+  findLetterPool,
+  letterWords,
+  combineGames,
+  organizeWords,
+  completeWordGames,
+  mathGames,
+  type MathGame
+} from './data/exercises';
+
+import {
   initialProgress,
   reward,
   type Progress
@@ -1923,14 +1933,10 @@ function HomePage({
       <div className="heroArt">
         <StudentAvatar
           avatar={avatar}
-          size={130}
+          size={200}
         />
 
-        <div className="floating">A B C</div>
-
-        <div className="floating">
-          ⭐ {progress.stars}
-        </div>
+        
       </div>
     </section>
   );
@@ -2573,214 +2579,8 @@ function Writing({
    JOGOS VARIADOS
 =========================== */
 
-const findLetterPool = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-
-const letterWords: Record<string, string[]> = {
-  A: ['ABELHA', 'AVIÃO', 'ANEL'],
-  B: ['BOLA', 'BOCA', 'BOTA'],
-  C: ['CASA', 'CAMA', 'COPO'],
-  D: ['DADO', 'DENTE', 'DOCE'],
-  E: ['ELEFANTE', 'ESCADA', 'ESTRELA'],
-  F: ['FACA', 'FOCA', 'FLOR'],
-  G: ['GATO', 'GALO', 'GIRAFA'],
-  H: ['HIPOPÓTAMO', 'HOTEL', 'HOMEM'],
-  I: ['ILHA', 'IGREJA', 'IOIÔ'],
-  J: ['JACARÉ', 'JANELA', 'JOGO'],
-  K: ['KIWI', 'KARATÊ', 'KETCHUP'],
-  L: ['LEÃO', 'LATA', 'LOBO'],
-  M: ['MALA', 'MAPA', 'MOTO'],
-  N: ['NAVIO', 'NINHO', 'NARIZ'],
-  O: ['OVO', 'OLHO', 'ONÇA'],
-  P: ['PATO', 'PIPA', 'PATO'],
-  Q: ['QUEIJO', 'QUADRO', 'QUATI'],
-  R: ['RATO', 'REDE', 'RODA'],
-  S: ['SAPO', 'SUCO', 'SINO'],
-  T: ['TATU', 'TOMATE', 'TIGRE'],
-  U: ['UVA', 'URSO', 'UNHA'],
-  V: ['VACA', 'VELA', 'VASO'],
-  W: ['WIFI', 'WEB', 'WAFFLE'],
-  X: ['XÍCARA', 'XADREZ', 'XALE'],
-  Y: ['YOGA', 'YAKISOBA', 'YOUTUBE'],
-  Z: ['ZEBRA', 'ZERO', 'ZÍPER']
-};
-
-const combineGames = [
-  { emoji: '🐱', answer: 'GATO', options: ['PATO', 'GATO', 'BOLA'] },
-  { emoji: '🐄', answer: 'VACA', options: ['VACA', 'CASA', 'SAPO'] },
-  { emoji: '🦆', answer: 'PATO', options: ['MALA', 'PATO', 'RATO'] },
-  { emoji: '🐢', answer: 'TATU', options: ['TATU', 'GATO', 'MOTO'] },
-  { emoji: '⚽', answer: 'BOLA', options: ['BOTA', 'BOLA', 'BOCA'] },
-  { emoji: '🏠', answer: 'CASA', options: ['CASA', 'MALA', 'MAPA'] },
-  { emoji: '🐸', answer: 'SAPO', options: ['SAPO', 'SINO', 'SUCO'] },
-  { emoji: '🐭', answer: 'RATO', options: ['GATO', 'RATO', 'PATO'] },
-  { emoji: '🦁', answer: 'LEÃO', options: ['LOBO', 'LEÃO', 'GATO'] },
-  { emoji: '🐺', answer: 'LOBO', options: ['LEÃO', 'LOBO', 'RATO'] },
-  { emoji: '🍇', answer: 'UVA', options: ['UVA', 'OVO', 'SUCO'] },
-  { emoji: '🥚', answer: 'OVO', options: ['UVA', 'OVO', 'BOLA'] },
-  { emoji: '🚢', answer: 'NAVIO', options: ['MAPA', 'MOTO', 'NAVIO'] },
-  { emoji: '🦓', answer: 'ZEBRA', options: ['VACA', 'ZEBRA', 'GIRAFA'] },
-  { emoji: '🧀', answer: 'QUEIJO', options: ['QUEIJO', 'DOCE', 'BOLO'] },
-  { emoji: '☕', answer: 'XÍCARA', options: ['COPO', 'XÍCARA', 'VASO'] },
-  { emoji: '🌼', answer: 'FLOR', options: ['FLOR', 'FACA', 'FOCA'] },
-  { emoji: '🐝', answer: 'ABELHA', options: ['ABELHA', 'AVIÃO', 'ANEL'] },
-  { emoji: '🐊', answer: 'JACARÉ', options: ['JANELA', 'JACARÉ', 'GIRAFA'] },
-  { emoji: '🦛', answer: 'HIPOPÓTAMO', options: ['ELEFANTE', 'HIPOPÓTAMO', 'JACARÉ'] },
-  { emoji: '🐻', answer: 'URSO', options: ['URSO', 'GATO', 'LOBO'] },
-  { emoji: '🐯', answer: 'TIGRE', options: ['LEÃO', 'TIGRE', 'ZEBRA'] },
-  { emoji: '🍅', answer: 'TOMATE', options: ['TOMATE', 'QUEIJO', 'UVA'] },
-  { emoji: '🥝', answer: 'KIWI', options: ['UVA', 'KIWI', 'TOMATE'] },
-  { emoji: '👃', answer: 'NARIZ', options: ['BOCA', 'NARIZ', 'OLHO'] },
-  { emoji: '👁️', answer: 'OLHO', options: ['OLHO', 'BOCA', 'UNHA'] },
-  { emoji: '🦷', answer: 'DENTE', options: ['DENTE', 'NARIZ', 'BOCA'] },
-  { emoji: '🕯️', answer: 'VELA', options: ['VASO', 'VELA', 'REDE'] },
-  { emoji: '🪁', answer: 'PIPA', options: ['PIPA', 'MAPA', 'MALA'] },
-  { emoji: '🎲', answer: 'DADO', options: ['DADO', 'DOCE', 'DENTE'] }
-];
-
-const organizeWords = [
-  'CASA', 'BOLA', 'PATO', 'SAPO', 'MALA',
-  'GATO', 'VACA', 'TATU', 'RATO', 'MAPA',
-  'DADO', 'BOCA', 'MOTO', 'LATA', 'PIPA',
-  'BOTA', 'CAMA', 'LOBO', 'SUCO', 'UVA',
-  'OVO', 'LEÃO', 'NAVIO', 'ZEBRA', 'FLOR',
-  'FOCA', 'URSO', 'VELA', 'VASO', 'RODA',
-  'SINO', 'REDE', 'UNHA', 'OLHO', 'NARIZ',
-  'TIGRE', 'DOCE', 'COPO', 'ANEL', 'JOGO'
-];
-
-const completeWordGames = [
-  { emoji: '🐱', pattern: 'G _ T O', answer: 'A', options: ['A', 'O', 'U'], word: 'GATO' },
-  { emoji: '🏠', pattern: 'C A _ A', answer: 'S', options: ['S', 'T', 'P'], word: 'CASA' },
-  { emoji: '⚽', pattern: 'B O _ A', answer: 'L', options: ['L', 'R', 'M'], word: 'BOLA' },
-  { emoji: '🐸', pattern: 'S A _ O', answer: 'P', options: ['P', 'T', 'L'], word: 'SAPO' },
-  { emoji: '🐄', pattern: 'V A _ A', answer: 'C', options: ['C', 'T', 'P'], word: 'VACA' },
-  { emoji: '🐭', pattern: 'R A _ O', answer: 'T', options: ['T', 'P', 'D'], word: 'RATO' },
-  { emoji: '🍇', pattern: '_ V A', answer: 'U', options: ['U', 'O', 'A'], word: 'UVA' },
-  { emoji: '🥚', pattern: 'O _ O', answer: 'V', options: ['V', 'B', 'D'], word: 'OVO' },
-  { emoji: '🦓', pattern: 'Z E _ R A', answer: 'B', options: ['B', 'P', 'D'], word: 'ZEBRA' },
-  { emoji: '🚢', pattern: 'N A _ I O', answer: 'V', options: ['V', 'B', 'F'], word: 'NAVIO' },
-  { emoji: '🌼', pattern: 'F L _ R', answer: 'O', options: ['O', 'A', 'E'], word: 'FLOR' },
-  { emoji: '🐻', pattern: 'U R _ O', answer: 'S', options: ['S', 'T', 'P'], word: 'URSO' },
-  { emoji: '🐯', pattern: 'T I _ R E', answer: 'G', options: ['G', 'C', 'D'], word: 'TIGRE' },
-  { emoji: '👃', pattern: 'N A R _ Z', answer: 'I', options: ['I', 'A', 'O'], word: 'NARIZ' },
-  { emoji: '🕯️', pattern: 'V E _ A', answer: 'L', options: ['L', 'R', 'M'], word: 'VELA' }
-];
-
 const shuffle = <T,>(items: readonly T[]) =>
   [...items].sort(() => Math.random() - 0.5);
-
-
-type MathGame = {
-  type: 'count' | 'add' | 'subtract';
-  question: string;
-  visual?: string;
-  answer: number;
-  options: number[];
-};
-
-const mathGames: MathGame[] = [
-  {
-    type: 'count',
-    question: 'QUANTAS MAÇÃS TEM AQUI?',
-    visual: '🍎 🍎 🍎',
-    answer: 3,
-    options: [2, 3, 4]
-  },
-  {
-    type: 'count',
-    question: 'QUANTAS ESTRELAS TEM AQUI?',
-    visual: '⭐ ⭐ ⭐ ⭐ ⭐',
-    answer: 5,
-    options: [4, 5, 6]
-  },
-  {
-    type: 'count',
-    question: 'QUANTAS BOLAS TEM AQUI?',
-    visual: '⚽ ⚽ ⚽ ⚽',
-    answer: 4,
-    options: [3, 4, 5]
-  },
-  {
-    type: 'count',
-    question: 'QUANTOS PEIXES TEM AQUI?',
-    visual: '🐟 🐟 🐟 🐟 🐟 🐟',
-    answer: 6,
-    options: [5, 6, 7]
-  },
-  {
-    type: 'count',
-    question: 'QUANTOS CARROS TEM AQUI?',
-    visual: '🚗 🚗 🚗 🚗 🚗 🚗 🚗',
-    answer: 7,
-    options: [6, 7, 8]
-  },
-  {
-    type: 'add',
-    question: 'QUANTO É 1 + 2?',
-    answer: 3,
-    options: [2, 3, 4]
-  },
-  {
-    type: 'add',
-    question: 'QUANTO É 2 + 2?',
-    answer: 4,
-    options: [3, 4, 5]
-  },
-  {
-    type: 'add',
-    question: 'QUANTO É 3 + 2?',
-    answer: 5,
-    options: [4, 5, 6]
-  },
-  {
-    type: 'add',
-    question: 'QUANTO É 4 + 3?',
-    answer: 7,
-    options: [6, 7, 8]
-  },
-  {
-    type: 'add',
-    question: 'QUANTO É 5 + 4?',
-    answer: 9,
-    options: [8, 9, 10]
-  },
-  {
-    type: 'add',
-    question: 'QUANTO É 6 + 4?',
-    answer: 10,
-    options: [9, 10, 11]
-  },
-  {
-    type: 'subtract',
-    question: 'QUANTO É 3 - 1?',
-    answer: 2,
-    options: [1, 2, 3]
-  },
-  {
-    type: 'subtract',
-    question: 'QUANTO É 5 - 2?',
-    answer: 3,
-    options: [2, 3, 4]
-  },
-  {
-    type: 'subtract',
-    question: 'QUANTO É 7 - 3?',
-    answer: 4,
-    options: [3, 4, 5]
-  },
-  {
-    type: 'subtract',
-    question: 'QUANTO É 8 - 2?',
-    answer: 6,
-    options: [5, 6, 7]
-  },
-  {
-    type: 'subtract',
-    question: 'QUANTO É 10 - 4?',
-    answer: 6,
-    options: [5, 6, 7]
-  }
-];
 
 
 const getMathHelp = (game: MathGame) => {
@@ -3103,6 +2903,7 @@ function Games({
   const [mathTimeLeft, setMathTimeLeft] = useState(25);
   const [mathLocked, setMathLocked] = useState(false);
   const [mathWrongCount, setMathWrongCount] = useState(0);
+  const [mathStarted, setMathStarted] = useState(false);
 
   const combine = combineGames[combineIndex];
   const organizeWord = organizeWords[wordIndex];
@@ -3191,6 +2992,8 @@ function Games({
     setMathVisualHelp(null);
     setMathWrongCount(0);
 
+    if (!mathStarted) return;
+
     const timer = window.setTimeout(() => {
       speak(
         `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathGame.options.join(', ')}`
@@ -3198,10 +3001,10 @@ function Games({
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [mathIndex]);
+  }, [mathIndex, mathStarted]);
 
   useEffect(() => {
-    if (mathLocked) return;
+    if (!mathStarted || mathLocked) return;
 
     if (mathTimeLeft <= 0) {
       setMathLocked(true);
@@ -3227,7 +3030,7 @@ function Games({
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [mathTimeLeft, mathLocked, mathIndex]);
+  }, [mathTimeLeft, mathLocked, mathIndex, mathStarted]);
 
   const chooseLetter = (letter: string) => {
     if (letter === target) {
@@ -3336,8 +3139,22 @@ function Games({
     }
   };
 
+  const startMathChallenge = () => {
+    setMathTimeLeft(25);
+    setMathLocked(false);
+    setMathMessage('');
+    setMathHelp('');
+    setMathVisualHelp(null);
+    setMathWrongCount(0);
+    setMathStarted(true);
+
+    speak(
+      `${mathGame.question} ESCOLHA UMA DAS RESPOSTAS: ${mathGame.options.join(', ')}`
+    );
+  };
+
   const chooseMathAnswer = (answer: number) => {
-    if (mathLocked) return;
+    if (!mathStarted || mathLocked) return;
 
     if (answer === mathGame.answer) {
       setMathLocked(true);
@@ -3573,8 +3390,80 @@ function Games({
 
       <div
         className="gameCard math-game-card"
-        style={{ marginTop: '20px' }}
+        style={{
+          marginTop: '20px',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
       >
+        {!mathStarted && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 20,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px',
+              background: 'rgba(255, 255, 255, 0.72)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              borderRadius: '24px'
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '430px',
+                textAlign: 'center',
+                padding: '28px',
+                borderRadius: '22px',
+                background: 'rgba(255, 255, 255, 0.94)',
+                boxShadow: '0 12px 35px rgba(15, 23, 42, 0.16)'
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '58px',
+                  marginBottom: '8px'
+                }}
+              >
+                🧮
+              </div>
+
+              <h3
+                style={{
+                  margin: '0 0 10px'
+                }}
+              >
+                DESAFIO DE MATEMÁTICA
+              </h3>
+
+              <p
+                style={{
+                  margin: '0 0 18px',
+                  lineHeight: 1.5
+                }}
+              >
+                O TEMPO SÓ VAI COMEÇAR QUANDO VOCÊ APERTAR EM
+                INICIAR DESAFIO.
+              </p>
+
+              <button
+                className="primary"
+                onClick={startMathChallenge}
+                style={{
+                  fontSize: '18px',
+                  padding: '14px 24px'
+                }}
+              >
+                ▶ INICIAR DESAFIO
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="math-game-heading">
           <div>
             <span className="math-game-badge">➕ MATEMÁTICA</span>
