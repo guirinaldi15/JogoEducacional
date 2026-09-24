@@ -256,7 +256,47 @@ const loadStudents = (): Student[] => {
 const loadStudentProgressLocal = (id: string): Progress => {
   try {
     const saved = localStorage.getItem(studentProgressKey(id));
-    return saved ? JSON.parse(saved) : cloneInitialProgress();
+
+    if (!saved) {
+      return cloneInitialProgress();
+    }
+
+    const parsed = JSON.parse(saved);
+
+    return {
+      ...cloneInitialProgress(),
+      ...parsed,
+      practicedLetters: Array.isArray(parsed.practicedLetters)
+        ? parsed.practicedLetters
+        : [],
+      practicedSyllables: Array.isArray(parsed.practicedSyllables)
+        ? parsed.practicedSyllables
+        : [],
+      practicedWords: Array.isArray(parsed.practicedWords)
+        ? parsed.practicedWords
+        : [],
+      usedCombineExercises: Array.isArray(parsed.usedCombineExercises)
+        ? parsed.usedCombineExercises
+        : [],
+      usedOrganizeExercises: Array.isArray(parsed.usedOrganizeExercises)
+        ? parsed.usedOrganizeExercises
+        : [],
+      usedCompleteExercises: Array.isArray(parsed.usedCompleteExercises)
+        ? parsed.usedCompleteExercises
+        : [],
+      usedMathExercises: Array.isArray(parsed.usedMathExercises)
+        ? parsed.usedMathExercises
+        : [],
+      usedWordExercises: Array.isArray(parsed.usedWordExercises)
+        ? parsed.usedWordExercises
+        : [],
+      usedReadingExercises: Array.isArray(parsed.usedReadingExercises)
+        ? parsed.usedReadingExercises
+        : [],
+      history: Array.isArray(parsed.history)
+        ? parsed.history
+        : []
+    };
   } catch {
     return cloneInitialProgress();
   }
@@ -297,6 +337,33 @@ const loadStudentProgress = async (id: string): Promise<Progress> => {
       return {
         ...cloneInitialProgress(),
         ...data,
+        practicedLetters: Array.isArray(data.practicedLetters)
+          ? data.practicedLetters
+          : [],
+        practicedSyllables: Array.isArray(data.practicedSyllables)
+          ? data.practicedSyllables
+          : [],
+        practicedWords: Array.isArray(data.practicedWords)
+          ? data.practicedWords
+          : [],
+        usedCombineExercises: Array.isArray(data.usedCombineExercises)
+          ? data.usedCombineExercises
+          : [],
+        usedOrganizeExercises: Array.isArray(data.usedOrganizeExercises)
+          ? data.usedOrganizeExercises
+          : [],
+        usedCompleteExercises: Array.isArray(data.usedCompleteExercises)
+          ? data.usedCompleteExercises
+          : [],
+        usedMathExercises: Array.isArray(data.usedMathExercises)
+          ? data.usedMathExercises
+          : [],
+        usedWordExercises: Array.isArray(data.usedWordExercises)
+          ? data.usedWordExercises
+          : [],
+        usedReadingExercises: Array.isArray(data.usedReadingExercises)
+          ? data.usedReadingExercises
+          : [],
         history: Array.isArray(data.history) ? data.history : []
       };
     }
@@ -617,13 +684,7 @@ export default function App() {
           })
         );
 
-        setStudents(
-  alunosConvertidos.sort((a, b) =>
-    a.name.localeCompare(b.name, 'pt-BR', {
-      sensitivity: 'base'
-    })
-  )
-);
+        setStudents(alunosConvertidos);
       } catch (error) {
         console.error('Erro ao buscar alunos:', error);
       }
@@ -692,13 +753,10 @@ export default function App() {
           new Date().toISOString()
       };
 
-      setStudents((current) =>
-  [...current, newStudent].sort((a, b) =>
-    a.name.localeCompare(b.name, 'pt-BR', {
-      sensitivity: 'base'
-    })
-  )
-);
+      setStudents((current) => [
+        ...current,
+        newStudent
+      ]);
 
       await Promise.all([
         saveStudentProgress(newStudent.id, cloneInitialProgress()),
@@ -1231,6 +1289,8 @@ export default function App() {
           <Quiz
             title="🧩 Forme a palavra"
             questions={wordQuestions}
+            progress={progress}
+            setProgress={setProgress}
             complete={(word) =>
               complete(
                 `Formação da palavra ${word}`,
@@ -1245,6 +1305,8 @@ export default function App() {
 
         {page === 'reading' && (
           <Reading
+            progress={progress}
+            setProgress={setProgress}
             complete={(word) =>
               complete(
                 `Leitura da palavra ${word}`,
@@ -2312,15 +2374,30 @@ type WordQuestion = {
 function Quiz({
   title,
   questions,
+  progress,
+  setProgress,
   complete,
   wrong
 }: {
   title: string;
   questions: readonly WordQuestion[];
+  progress: Progress;
+  setProgress: React.Dispatch<React.SetStateAction<Progress>>;
   complete: (word: string) => void;
   wrong: () => void;
 }) {
-  const [index, setIndex] = useState(0);
+  const getQuestionId = (question: WordQuestion, questionIndex: number) =>
+    `word-${questionIndex}-${question.word}-${question.pattern}`;
+
+  const [index, setIndex] = useState(() =>
+    pickUnusedIndex(
+      [...questions],
+      progress.usedWordExercises ?? [],
+      (question, questionIndex) =>
+        getQuestionId(question, questionIndex)
+    )
+  );
+
   const [selectedLetter, setSelectedLetter] = useState('');
   const [message, setMessage] = useState('');
 
@@ -2353,12 +2430,40 @@ function Quiz({
       speak(question.word);
       complete(question.word);
 
+      const currentId = getQuestionId(question, index);
+
+      const usedWithCurrent = Array.from(
+        new Set([
+          ...(progress.usedWordExercises ?? []),
+          currentId
+        ])
+      );
+
+      const nextIndex = pickUnusedIndex(
+        [...questions],
+        usedWithCurrent,
+        (item, itemIndex) =>
+          getQuestionId(item, itemIndex),
+        index
+      );
+
+      setProgress((current) => ({
+        ...current,
+        usedWordExercises:
+          usedWithCurrent.length >= questions.length
+            ? []
+            : Array.from(
+                new Set([
+                  ...(current.usedWordExercises ?? []),
+                  currentId
+                ])
+              )
+      }));
+
       setTimeout(() => {
         setMessage('');
         setSelectedLetter('');
-        setIndex(
-          (current) => (current + 1) % questions.length
-        );
+        setIndex(nextIndex);
       }, 1100);
     } else {
       wrong();
@@ -2407,13 +2512,30 @@ function Quiz({
 =========================== */
 
 function Reading({
+  progress,
+  setProgress,
   complete,
   wrong
 }: {
+  progress: Progress;
+  setProgress: React.Dispatch<React.SetStateAction<Progress>>;
   complete: (word: string) => void;
   wrong: () => void;
 }) {
-  const [index, setIndex] = useState(0);
+  const getReadingId = (
+    question: (typeof readingQuestions)[number],
+    questionIndex: number
+  ) => `reading-${questionIndex}-${question.answer}`;
+
+  const [index, setIndex] = useState(() =>
+    pickUnusedIndex(
+      [...readingQuestions],
+      progress.usedReadingExercises ?? [],
+      (question, questionIndex) =>
+        getReadingId(question, questionIndex)
+    )
+  );
+
   const [message, setMessage] = useState('');
 
   const question = readingQuestions[index];
@@ -2439,12 +2561,39 @@ function Reading({
       speak(question.answer);
       complete(question.answer);
 
+      const currentId = getReadingId(question, index);
+
+      const usedWithCurrent = Array.from(
+        new Set([
+          ...(progress.usedReadingExercises ?? []),
+          currentId
+        ])
+      );
+
+      const nextIndex = pickUnusedIndex(
+        [...readingQuestions],
+        usedWithCurrent,
+        (item, itemIndex) =>
+          getReadingId(item, itemIndex),
+        index
+      );
+
+      setProgress((current) => ({
+        ...current,
+        usedReadingExercises:
+          usedWithCurrent.length >= readingQuestions.length
+            ? []
+            : Array.from(
+                new Set([
+                  ...(current.usedReadingExercises ?? []),
+                  currentId
+                ])
+              )
+      }));
+
       setTimeout(() => {
         setMessage('');
-        setIndex(
-          (current) =>
-            (current + 1) % readingQuestions.length
-        );
+        setIndex(nextIndex);
       }, 1000);
     } else {
       wrong();

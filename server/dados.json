@@ -1265,17 +1265,19 @@
       "usedOrganizeExercises": [],
       "usedCompleteExercises": [],
       "usedMathExercises": [],
+      "usedWordExercises": [],
+      "usedReadingExercises": [],
       "streak": 1,
       "badges": [],
       "history": []
     },
     "1790269959334-r2mf4v": {
-      "points": 2223,
-      "stars": 153,
-      "activities": 153,
+      "points": 2268,
+      "stars": 156,
+      "activities": 156,
       "letters": 10,
       "syllables": 0,
-      "words": 24,
+      "words": 25,
       "practicedLetters": [
         "A",
         "B",
@@ -1313,7 +1315,8 @@
         "RATO",
         "CAMA",
         "ZEBRA",
-        "BANANA"
+        "BANANA",
+        "MOTO"
       ],
       "usedCombineExercises": [],
       "usedOrganizeExercises": [],
@@ -1323,6 +1326,12 @@
         "subtract-15-4",
         "subtract-21-6"
       ],
+      "usedWordExercises": [
+        "word-9-RATO-R _ T O",
+        "word-7-BOCA-B O _ A",
+        "word-11-MOTO-M O _ O"
+      ],
+      "usedReadingExercises": [],
       "streak": 1,
       "badges": [
         "primeira",
@@ -1330,6 +1339,21 @@
         "letras"
       ],
       "history": [
+        {
+          "label": "Formação da palavra MOTO",
+          "at": 1790275910295,
+          "score": 15
+        },
+        {
+          "label": "Formação da palavra BOCA",
+          "at": 1790275907757,
+          "score": 15
+        },
+        {
+          "label": "Formação da palavra RATO",
+          "at": 1790275905482,
+          "score": 15
+        },
         {
           "label": "Formação da palavra SAPO",
           "at": 1790275023850,
@@ -1463,21 +1487,6 @@
         {
           "label": "Leitura da palavra VACA",
           "at": 1790274571588,
-          "score": 15
-        },
-        {
-          "label": "Leitura da palavra CASA",
-          "at": 1790274569405,
-          "score": 15
-        },
-        {
-          "label": "Leitura da palavra GATO",
-          "at": 1790274567039,
-          "score": 15
-        },
-        {
-          "label": "Leitura da palavra BANANA",
-          "at": 1790274563821,
           "score": 15
         }
       ]
@@ -1972,16 +1981,22 @@
       ]
     },
     "1790269959310-e2xqfc": {
-      "assessmentCompleted": false,
-      "assessmentScore": 0,
-      "initialLevel": null,
-      "suggestedLevel": null,
+      "assessmentCompleted": true,
+      "assessmentScore": 4,
+      "initialLevel": "Silábico-Alfabético",
+      "suggestedLevel": "Silábico-Alfabético",
       "manualLevel": null,
       "correctAnswers": 0,
       "wrongAnswers": 0,
       "totalAttempts": 0,
-      "updatedAt": null,
-      "levelHistory": []
+      "updatedAt": "2026-09-24T18:52:07.108Z",
+      "levelHistory": [
+        {
+          "level": "Silábico-Alfabético",
+          "source": "sondagem",
+          "at": "2026-09-24T18:52:07.108Z"
+        }
+      ]
     },
     "1790269959334-r2mf4v": {
       "assessmentCompleted": true,
@@ -1989,10 +2004,10 @@
       "initialLevel": "Silábico com valor",
       "suggestedLevel": "Alfabético",
       "manualLevel": null,
-      "correctAnswers": 139,
+      "correctAnswers": 142,
       "wrongAnswers": 1,
-      "totalAttempts": 140,
-      "updatedAt": "2026-09-24T18:37:03.850Z",
+      "totalAttempts": 143,
+      "updatedAt": "2026-09-24T18:51:50.294Z",
       "levelHistory": [
         {
           "level": "Silábico com valor",
