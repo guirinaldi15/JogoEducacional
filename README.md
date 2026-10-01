@@ -5,37 +5,21 @@ Aplicativo web educacional desenvolvido em **React + TypeScript + Vite**, com fo
 ## Recursos
 
 - Tela de seleção entre aluno e professor
-
 - Cadastro de alunos com nome e avatar
-
 - Área do aluno
-
 - Área do professor com senha
-
 - Sondagem inicial
-
 - Acompanhamento do nível de escrita
-
 - Atividades de letras, sílabas, palavras, leitura e escrita
-
 - Jogos educativos
-
 - Atividades de matemática
-
 - Dicas visuais em operações matemáticas
-
 - Áudio com instruções
-
 - Pontos, estrelas e conquistas
-
 - Histórico de atividades
-
 - Progresso individual por aluno
-
 - Acesso por outros computadores da mesma rede
-
 - Compartilhamento de cadastro, progresso, sondagem, nível de aprendizagem e histórico entre os computadores
-
 - Servidor Node.js + Express para compartilhamento dos dados
 
 ---
@@ -47,11 +31,8 @@ Aplicativo web educacional desenvolvido em **React + TypeScript + Vite**, com fo
 Antes de começar, tenha instalado:
 
 - Node.js
-
 - npm
-
 - Git
-
 - VS Code ou outro editor de código
 
 Para verificar se o Node.js está instalado:
@@ -119,23 +100,48 @@ npm install
 
 Esse comando instala as dependências do React, Vite e demais bibliotecas utilizadas.
 
+Depois entre na pasta do servidor:
+
+```bash
+cd server
+```
+
+Instale as dependências do servidor:
+
+```bash
+npm install
+```
+
+Depois volte para a pasta principal:
+
+```bash
+cd ..
+```
+
 ---
 
 # Rodando somente no computador local
 
-Para iniciar o Alfabetiza+ apenas no próprio computador:
+Para utilizar o Alfabetiza+ corretamente, é necessário manter o frontend e o backend funcionando ao mesmo tempo.
+
+Abra dois terminais.
+
+## Terminal 1 — React / Vite
+
+Na pasta principal do projeto:
 
 ```bash
 npm run dev
 ```
 
-O Vite deve mostrar algo parecido com:
+O Vite deverá mostrar algo parecido com:
 
 ```text
-Local: http://localhost:5173/
+Local:   http://localhost:5173/
+Network: http://10.137.11.230:5173/
 ```
 
-Abra no navegador:
+No próprio computador, abra:
 
 ```text
 http://localhost:5173/
@@ -143,23 +149,65 @@ http://localhost:5173/
 
 ---
 
+## Terminal 2 — Node.js / Express
+
+Entre na pasta do servidor:
+
+```bash
+cd server
+```
+
+Depois execute:
+
+```bash
+npm start
+```
+
+O terminal deverá mostrar algo semelhante a:
+
+```text
+Servidor Alfabetiza+ rodando!
+
+Local: http://localhost:3001
+Rede: http://SEU_IP:3001
+```
+
+---
+
 # Rodando para outros computadores da mesma rede
 
-Para permitir que outros computadores da mesma rede acessem o Alfabetiza+, inicie o Vite com:
+O projeto está configurado para permitir acesso pela rede automaticamente.
+
+Não é mais necessário executar:
 
 ```bash
 npm run dev -- --host
 ```
 
-O terminal deve mostrar algo parecido com:
+Agora basta executar:
+
+```bash
+npm run dev
+```
+
+Isso acontece porque o `package.json` principal possui:
+
+```json
+"scripts": {
+  "dev": "vite --host 0.0.0.0",
+  "build": "vite build",
+  "preview": "vite preview --host 0.0.0.0"
+}
+```
+
+O terminal do Vite deverá mostrar algo parecido com:
 
 ```text
 Local:   http://localhost:5173/
-
 Network: http://10.137.11.230:5173/
 ```
 
-O endereço `Network` pode mudar de acordo com a rede.
+O endereço `Network` pode mudar dependendo do computador ou da rede utilizada.
 
 No outro computador, abra o navegador e digite o endereço exibido em `Network`.
 
@@ -169,7 +217,7 @@ Exemplo:
 http://10.137.11.230:5173/
 ```
 
-Os dois computadores precisam estar conectados à mesma rede.
+Os computadores precisam estar conectados à mesma rede.
 
 ---
 
@@ -180,16 +228,12 @@ O Alfabetiza+ utiliza um servidor Node.js + Express para permitir que os dados s
 Atualmente, o servidor compartilha:
 
 - Cadastro dos alunos
-
 - Progresso individual
-
 - Resultado da sondagem inicial
-
 - Nível de aprendizagem
-
 - Histórico de atividades
-
 - Histórico de evolução dos níveis
+- Exercícios já realizados por cada aluno
 
 A pasta do servidor é:
 
@@ -209,15 +253,15 @@ Instale as dependências:
 npm install
 ```
 
-Caso ainda não estejam instaladas:
-
-```bash
-npm install express cors
-```
-
 Depois inicie o servidor:
 
 ```bash
+npm start
+```
+
+O comando `npm start` executa:
+
+```text
 node server.js
 ```
 
@@ -227,6 +271,7 @@ O terminal deverá mostrar algo semelhante a:
 Servidor Alfabetiza+ rodando!
 
 Local: http://localhost:3001
+Rede: http://SEU_IP:3001
 ```
 
 ---
@@ -246,7 +291,7 @@ cd C:\Users\Aluno\JogoEducacional
 Depois rode:
 
 ```bash
-npm run dev -- --host
+npm run dev
 ```
 
 Não feche esse terminal.
@@ -264,7 +309,7 @@ cd C:\Users\Aluno\JogoEducacional\server
 Depois rode:
 
 ```bash
-node server.js
+npm start
 ```
 
 Também não feche esse terminal.
@@ -281,7 +326,9 @@ Abra:
 http://localhost:5173/
 ```
 
-ou:
+ou utilize o endereço `Network` exibido pelo Vite.
+
+Exemplo:
 
 ```text
 http://10.137.11.230:5173/
@@ -289,13 +336,55 @@ http://10.137.11.230:5173/
 
 ## Em outro computador da mesma rede
 
-Abra:
+Abra o endereço exibido como `Network` no terminal do Vite.
+
+Exemplo:
 
 ```text
 http://10.137.11.230:5173/
 ```
 
-Substitua `10.137.11.230` pelo IP exibido como `Network` no terminal do Vite.
+Substitua `10.137.11.230` pelo IP exibido no computador que estiver funcionando como host.
+
+---
+
+# IP automático do servidor
+
+Anteriormente, o endereço do backend era fixado diretamente no código.
+
+Agora o sistema utiliza:
+
+```ts
+const API_URL = `http://${window.location.hostname}:3001/api`;
+```
+
+Isso faz com que o Alfabetiza+ utilize automaticamente o IP do computador que estiver funcionando como host.
+
+Por exemplo, se o computador host possuir:
+
+```text
+10.137.11.50
+```
+
+o sistema acessará automaticamente:
+
+```text
+http://10.137.11.50:3001/api
+```
+
+Se outro computador assumir como host e possuir:
+
+```text
+10.137.11.80
+```
+
+o sistema utilizará:
+
+```text
+http://10.137.11.80:3001/api
+```
+
+Não é necessário alterar o `App.tsx` quando o IP do computador mudar.
 
 ---
 
@@ -307,7 +396,7 @@ No computador host, abra:
 http://localhost:3001/api/teste
 ```
 
-Se estiver funcionando, deve aparecer uma mensagem semelhante a:
+Se estiver funcionando, deverá aparecer:
 
 ```json
 {
@@ -316,6 +405,12 @@ Se estiver funcionando, deve aparecer uma mensagem semelhante a:
 ```
 
 Para testar pelo outro computador da rede:
+
+```text
+http://IP_DO_HOST:3001/api/teste
+```
+
+Exemplo:
 
 ```text
 http://10.137.11.230:3001/api/teste
@@ -351,11 +446,37 @@ Então o endereço do Alfabetiza+ será:
 http://10.137.11.230:5173/
 ```
 
-E o servidor:
+E o servidor será:
 
 ```text
 http://10.137.11.230:3001/
 ```
+
+---
+
+# Qual computador pode ser o servidor?
+
+Qualquer computador que possua o projeto instalado pode iniciar o Alfabetiza+.
+
+Nesse computador, basta iniciar o backend:
+
+```bash
+cd C:\Users\Aluno\JogoEducacional\server
+
+npm start
+```
+
+Depois, em outro terminal, iniciar o frontend:
+
+```bash
+cd C:\Users\Aluno\JogoEducacional
+
+npm run dev
+```
+
+Esse computador passa a ser o host da aplicação durante aquela execução.
+
+Os outros computadores da mesma rede devem acessar o endereço `Network` exibido no terminal do Vite.
 
 ---
 
@@ -364,13 +485,13 @@ http://10.137.11.230:3001/
 Na primeira vez que executar:
 
 ```bash
-npm run dev -- --host
+npm run dev
 ```
 
 ou:
 
 ```bash
-node server.js
+npm start
 ```
 
 o Windows pode pedir permissão no Firewall.
@@ -378,6 +499,13 @@ o Windows pode pedir permissão no Firewall.
 Permita o acesso em **Redes privadas**.
 
 Se outro computador não conseguir acessar, verifique se o Node.js está permitido no Firewall do Windows.
+
+Também verifique se as portas abaixo não estão sendo bloqueadas:
+
+```text
+5173
+3001
+```
 
 ---
 
@@ -414,7 +542,7 @@ Depois que tudo estiver instalado, normalmente basta abrir dois terminais.
 ```bash
 cd C:\Users\Aluno\JogoEducacional
 
-npm run dev -- --host
+npm run dev
 ```
 
 ## Terminal 2
@@ -422,7 +550,7 @@ npm run dev -- --host
 ```bash
 cd C:\Users\Aluno\JogoEducacional\server
 
-node server.js
+npm start
 ```
 
 Depois acesse:
@@ -471,9 +599,16 @@ Caso esteja utilizando outro computador que já tenha o projeto clonado, atualiz
 git pull
 ```
 
-Se houver alterações nas dependências, execute novamente:
+Se houver alterações nas dependências do frontend:
 
 ```bash
+npm install
+```
+
+Se houver alterações nas dependências do servidor:
+
+```bash
+cd server
 npm install
 ```
 
@@ -505,13 +640,87 @@ Os dados são armazenados no arquivo:
 server/dados.json
 ```
 
-Por isso, enquanto o servidor estiver sendo executado no computador host, os outros computadores da mesma rede conseguem acessar os mesmos dados.
+Enquanto vários computadores estiverem acessando o **mesmo computador host**, todos utilizam os mesmos dados.
 
-Caso o computador utilizado como host apague os arquivos ao ser desligado ou reiniciado, os dados armazenados no `dados.json` também podem ser perdidos.
+Por exemplo:
 
-Para uma versão futura do sistema, poderá ser utilizado um banco de dados persistente, como MySQL ou outra solução de banco de dados.
+```text
+PC HOST
+   │
+   ├── PC 2
+   ├── PC 3
+   ├── PC 4
+   └── PC 5
+```
 
-O sistema é uma ferramenta de apoio pedagógico e não substitui a avaliação realizada pelo professor.
+Todos utilizam o `dados.json` existente no computador host.
+
+---
+
+# Importante sobre o dados.json
+
+Atualmente, cada computador que possui uma cópia do projeto também possui sua própria cópia do arquivo:
+
+```text
+server/dados.json
+```
+
+Por isso:
+
+```text
+PC 1 como servidor
+→ utiliza o dados.json do PC 1
+
+PC 2 como servidor
+→ utiliza o dados.json do PC 2
+```
+
+Ou seja, qualquer computador pode iniciar o servidor, mas os dados utilizados serão os dados existentes naquele computador.
+
+Para que diferentes computadores possam assumir o servidor mantendo exatamente a mesma base de alunos e progressos, será necessário utilizar futuramente um banco de dados centralizado ou outro sistema de armazenamento compartilhado.
+
+---
+
+# Persistência dos dados
+
+Os dados armazenados em:
+
+```text
+server/dados.json
+```
+
+continuam salvos mesmo depois que o servidor é encerrado.
+
+Desligar o computador ou fechar o servidor normalmente **não apaga os dados**.
+
+Os dados podem ser perdidos caso:
+
+- o arquivo `dados.json` seja apagado;
+- o arquivo seja substituído;
+- o projeto seja sobrescrito;
+- o computador utilizado elimine os arquivos locais.
+
+---
+
+# Funcionamento sem internet
+
+As atividades pedagógicas do Alfabetiza+ não dependem de APIs externas para funcionar.
+
+Os exercícios são gerados utilizando conteúdos e dados armazenados dentro do próprio projeto.
+
+Por isso, o sistema pode funcionar em uma rede local mesmo sem conexão com a internet.
+
+É necessário apenas que os computadores consigam se comunicar pela mesma rede.
+
+---
+
+# Segurança e uso pedagógico
+
+O Alfabetiza+ é uma ferramenta de apoio pedagógico.
+
+Os níveis sugeridos pelo sistema funcionam como indicadores de aprendizagem.
+
+A avaliação final e a definição do nível de escrita do aluno devem ser realizadas pelo professor responsável.
 
 ---
 
