@@ -24,7 +24,42 @@ Aplicativo web educacional desenvolvido em **React + TypeScript + Vite**, com fo
 
 ---
 
-# Como rodar o projeto
+## Configurar o Git
+
+Antes de clonar ou enviar alterações para o repositório, configure seu nome e e-mail no Git:
+
+```bash
+git config --global user.name "raphaelmarques3655"
+git config --global user.email "raphaelmarques3655@gmail.com"
+```
+
+Para conferir:
+
+```bash
+git config --global user.name
+git config --global user.email
+```
+
+Deve aparecer:
+
+```text
+raphaelmarques3655
+raphaelmarques3655@gmail.com
+```
+
+---
+
+## Clonar o projeto
+
+```bash
+git clone https://github.com/guirinaldi15/JogoEducacional.git
+```
+
+Depois entre na pasta:
+
+```bash
+cd JogoEducacional
+```
 
 # Como iniciar o projeto
 
